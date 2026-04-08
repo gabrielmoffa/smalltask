@@ -1,0 +1,25 @@
+# Internal drafts
+DRAFT.md
+docs/design.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Environment
+.env
+.env.*
+
+# Editors
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code
+.claude/settings.local.json

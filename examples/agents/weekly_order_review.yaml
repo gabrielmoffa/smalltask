@@ -1,0 +1,26 @@
+name: weekly_order_review
+description: Reviews the last 7 days of orders and surfaces key patterns and anomalies.
+
+llm:
+  url: https://openrouter.ai/api/v1/chat/completions
+  model: anthropic/claude-3.5-sonnet
+  api_key_env: OPENROUTER_API_KEY
+  max_tokens: 2048
+  # extra_headers:
+  #   HTTP-Referer: https://yoursite.com
+
+prompt: |
+  You are a data analyst reviewing the last 7 days of order data.
+
+  Using the available tools, produce a concise weekly summary covering:
+  1. Overall volume and revenue
+  2. Refund rate — flag if above 10%
+  3. Top 5 customers by spend
+  4. Any anomalies or patterns worth flagging
+
+  Be direct. Use numbers. No fluff.
+
+tools:
+  - orders.get_order_summary
+  - orders.get_orders_last_n_days
+  - orders.get_top_customers
