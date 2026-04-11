@@ -195,6 +195,107 @@ result = run_agent(
 | `llm.extra_headers` | no | Additional HTTP headers (e.g. `HTTP-Referer`) |
 | `max_iterations` | no | Max agentic loop iterations (default: 20) |
 | `max_total_tokens` | no | Token budget across all iterations — stops early if exceeded (default: no limit) |
+| `pre_hook` | no | List of tool calls to run before the LLM loop (see [Hooks](#hooks)) |
+| `post_hook` | no | List of tool calls to run after the LLM loop (see [Hooks](#hooks)) |
+
+---
+
+## Hooks
+
+Hooks let you run deterministic tool calls before and after the LLM loop. They use the same tools you already have — no new concepts.
+
+```yaml
+name: metrics_alert
+prompt: |
+  Analyze the attached metrics. Flag anomalies. Be direct.
+
+llm:
+  url: https://openrouter.ai/api/v1/chat/completions
+  model: anthropic/claude-3.5-sonnet
+  api_key_env: OPENROUTER_API_KEY
+
+tools:
+  - analysis.plot_revenue
+  - analysis.get_summary
+
+pre_hook:
+  - analysis.snapshot_metrics:
+      days: 7
+  - analysis.check_threshold:
+      metric: error_rate
+      max: 0.05
+
+post_hook:
+  - reporting.upload_charts
+  - reporting.send_slack_report:
+      channel: "#alerts"
+```
+
+### Pre-hooks
+
+Pre-hooks run sequentially before the LLM. Their results are injected into the prompt so the LLM can see the data.
+
+Each entry is a tool name with optional args:
+
+```yaml
+pre_hook:
+  - orders.get_summary:
+      days: 7
+  - orders.check_threshold:
+      metric: refund_rate
+      max: 0.05
+```
+
+**Skip gate** — if a pre-hook returns `{"skip": True}`, the agent stops immediately without calling the LLM. Use this to avoid wasting tokens when there's nothing to act on:
+
+```python
+@tool
+def check_threshold(metric: str, max: float) -> dict:
+    """Only run the agent if a metric exceeds a threshold."""
+    value = get_current_value(metric)
+    if value <= max:
+        return {"skip": True, "reason": f"{metric} is {value}, below {max}"}
+    return {"value": value}
+```
+
+### Post-hooks
+
+Post-hooks run after the LLM finishes. The framework auto-injects two special parameters if your tool accepts them:
+
+- **`output`** (`str`) — the LLM's final response text.
+- **`tool_results`** (`list`) — every tool call made during the agent loop. Each entry is `{"tool": name, "args": {...}, "result": ...}`.
+
+Just declare the parameters you need — the framework fills them in:
+
+```python
+@tool
+def send_slack_report(output: str, tool_results: list, channel: str) -> str:
+    """Post the LLM report and any chart images to Slack."""
+    charts = [r["result"] for r in tool_results if r["result"].endswith(".png")]
+    post_to_slack(channel=channel, text=output, attachments=charts)
+    return f"sent to {channel} with {len(charts)} charts"
+```
+
+```yaml
+post_hook:
+  - slack.send_slack_report:
+      channel: "#alerts"
+```
+
+The `channel` comes from the YAML. The `output` and `tool_results` are injected by the framework.
+
+You can filter `tool_results` however you want — by tool name, by result content, by args:
+
+```python
+# Get all chart paths
+charts = [r["result"] for r in tool_results if r["tool"].startswith("plot_")]
+
+# Get results from a specific tool
+summaries = [r["result"] for r in tool_results if r["tool"] == "analysis.get_summary"]
+
+# Get all tool calls that used a specific argument
+weekly = [r for r in tool_results if r["args"].get("days") == 7]
+```
 
 ---
 

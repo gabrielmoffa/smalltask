@@ -214,5 +214,27 @@ def load_agent_config(agent_path: Path) -> dict:
     config.setdefault("max_tokens", 4096)
     config.setdefault("max_iterations", _DEFAULT_MAX_ITERATIONS)
     config.setdefault("max_total_tokens", None)
+    config.setdefault("pre_hook", [])
+    config.setdefault("post_hook", [])
+
+    # Normalize hooks: each entry is {tool_name: {args}} or just a string (no args)
+    for key in ("pre_hook", "post_hook"):
+        raw = config[key]
+        if not isinstance(raw, list):
+            raw = [raw]
+        normalized = []
+        for entry in raw:
+            if isinstance(entry, str):
+                normalized.append({"tool": entry, "args": {}})
+            elif isinstance(entry, dict):
+                # e.g. {"orders.get_order_summary": {"days": 7}}
+                tool_name = next(iter(entry))
+                args = entry[tool_name]
+                if args is None:
+                    args = {}
+                normalized.append({"tool": tool_name, "args": args})
+            else:
+                raise ValueError(f"Invalid {key} entry: {entry}")
+        config[key] = normalized
 
     return config

@@ -1,5 +1,6 @@
 """Core agent runner: load config + tools, run prompt-based agentic loop."""
 
+import inspect
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -70,6 +71,76 @@ def _resolve_tools_dir(agent_path: Path, tools_dir: Path | None) -> Path:
     )
 
 
+def _collect_hook_tools(hooks: list[dict], tools: dict) -> set[str]:
+    """Return the set of tool names referenced by hook entries."""
+    return {entry["tool"] for entry in hooks}
+
+
+def _run_hooks(
+    hooks: list[dict],
+    tools: dict,
+    verbose: bool,
+    output: str | None = None,
+    tool_results: list[dict] | None = None,
+) -> list[dict]:
+    """
+    Execute a list of hook entries sequentially.
+
+    Each entry is {"tool": "name", "args": {...}}.
+    For post-hooks, the framework auto-injects special parameters if the tool
+    function accepts them and they weren't already provided in the YAML args:
+
+    - ``output`` — the LLM's final response text.
+    - ``tool_results`` — the full list of tool calls made during the agent loop,
+      each as ``{"tool": name, "args": {...}, "result": ...}``.
+
+    Returns a list of {"tool": name, "result": result_value} dicts.
+    If any tool returns a dict containing ``"skip": True``, the list is
+    terminated early with that entry included.
+    """
+    auto_inject = {}
+    if output is not None:
+        auto_inject["output"] = output
+    if tool_results is not None:
+        auto_inject["tool_results"] = tool_results
+
+    results = []
+    for entry in hooks:
+        name = entry["tool"]
+        args = dict(entry["args"])
+
+        fn = tools.get(name, {}).get("fn")
+        if fn is None:
+            raise ValueError(f"Hook tool '{name}' not found")
+
+        # Auto-inject available context into parameters the tool accepts
+        if auto_inject:
+            sig = inspect.signature(fn)
+            for param_name, value in auto_inject.items():
+                if param_name in sig.parameters and param_name not in args:
+                    args[param_name] = value
+
+        if verbose:
+            print(f"[smalltask] Hook: {name}({json.dumps(args, default=str)})")
+
+        try:
+            raw = fn(**args)
+        except Exception as e:
+            raise RuntimeError(f"Hook tool '{name}' failed: {e}") from e
+
+        if verbose:
+            preview = json.dumps(raw, default=str) if not isinstance(raw, str) else raw
+            print(f"[smalltask] Hook result ({name}): {preview[:300]}\n")
+
+        results.append({"tool": name, "result": raw})
+
+        # Check for skip gate
+        if isinstance(raw, dict) and raw.get("skip") is True:
+            break
+
+    return results
+
+
 def run_agent(
     agent_path: Path,
     tools_dir: Path | None = None,
@@ -101,7 +172,15 @@ def run_agent(
     _max_total_tokens = max_total_tokens if max_total_tokens is not None else config["max_total_tokens"]
 
     resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
-    tools = load_tools_from_dir(resolved_tools_dir, config["tools"])
+
+    # Collect all tool names needed: agent tools + hook tools
+    hook_tool_names = (
+        _collect_hook_tools(config["pre_hook"], {})
+        | _collect_hook_tools(config["post_hook"], {})
+    )
+    all_tool_names = list(config["tools"]) + [n for n in hook_tool_names if n not in config["tools"]]
+
+    tools = load_tools_from_dir(resolved_tools_dir, all_tool_names) if all_tool_names else {}
     if extra_tools:
         tools = {**tools, **extra_tools}
 
@@ -109,20 +188,47 @@ def run_agent(
     if input_vars:
         prompt = Template(prompt).safe_substitute(input_vars)
 
+    if verbose:
+        print(f"\n[smalltask] Agent: {config['name']}")
+        print(f"[smalltask] Model: {llm_config.get('model')}")
+        print(f"[smalltask] Tools: {list(tools.keys())}\n")
+
+    # --- Pre-hooks ---
+    if config["pre_hook"]:
+        if verbose:
+            print("[smalltask] Running pre-hooks...")
+        pre_results = _run_hooks(config["pre_hook"], tools, verbose)
+
+        # Check if any pre-hook signalled skip
+        for entry in pre_results:
+            if isinstance(entry["result"], dict) and entry["result"].get("skip") is True:
+                reason = entry["result"].get("reason", "pre-hook returned skip")
+                if verbose:
+                    print(f"[smalltask] Skipped: {reason}")
+                return f"[skipped: {reason}]"
+
+        # Inject pre-hook results into the prompt
+        hook_context_parts = []
+        for entry in pre_results:
+            result = entry["result"]
+            formatted = json.dumps(result) if not isinstance(result, str) else result
+            hook_context_parts.append(f"### {entry['tool']}\n{formatted}")
+        hook_context = "\n\n".join(hook_context_parts)
+        prompt = f"## Pre-hook data\n\n{hook_context}\n\n## Task\n\n{prompt}"
+    else:
+        prompt = f"## Task\n\n{prompt}"
+
     tool_system_prompt = build_tool_system_prompt(tools)
-    system_content = f"{tool_system_prompt}\n\n## Task\n\n{prompt}"
+    system_content = f"{tool_system_prompt}\n\n{prompt}"
 
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": "Please complete the task described above."},
     ]
 
-    if verbose:
-        print(f"\n[smalltask] Agent: {config['name']}")
-        print(f"[smalltask] Model: {llm_config.get('model')}")
-        print(f"[smalltask] Tools: {list(tools.keys())}\n")
-
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    all_tool_results: list[dict] = []
+    final_output = None
 
     for iteration in range(_max_iterations):
         response_text, usage = complete(messages, llm_config)
@@ -135,7 +241,8 @@ def run_agent(
                 print(
                     f"[smalltask] Token budget reached: {total_usage['total_tokens']} / {_max_total_tokens}"
                 )
-            return "[token budget exceeded]"
+            final_output = "[token budget exceeded]"
+            break
 
         if verbose:
             print(f"[smalltask] Response (iter {iteration + 1}):\n{response_text}\n")
@@ -151,18 +258,19 @@ def run_agent(
                     f"completion={total_usage['completion_tokens']} "
                     f"total={total_usage['total_tokens']}"
                 )
-            return response_text.strip()
+            final_output = response_text.strip()
+            break
 
         # Append assistant message with all tool calls
         messages.append({"role": "assistant", "content": response_text})
 
         # Execute all tool calls in parallel
-        def _execute(call: dict) -> tuple[str, str]:
+        def _execute(call: dict) -> tuple[str, dict, str]:
             name = call["name"]
             args = call.get("args", {})
             fn = tools.get(name, {}).get("fn")
             if fn is None:
-                return name, f"Error: tool '{name}' not found"
+                return name, args, f"Error: tool '{name}' not found"
             if verbose:
                 print(f"[smalltask] Tool call: {name}({json.dumps(args)})")
             try:
@@ -172,22 +280,35 @@ def run_agent(
                 result = f"Error: {e}"
             if verbose:
                 print(f"[smalltask] Tool result ({name}): {result[:300]}\n")
-            return name, result
+            return name, args, result
 
-        results: list[tuple[str, str]] = [None] * len(tool_calls)  # type: ignore[list-item]
+        results: list[tuple[str, dict, str]] = [None] * len(tool_calls)  # type: ignore[list-item]
         with ThreadPoolExecutor(max_workers=len(tool_calls)) as pool:
             futures = {pool.submit(_execute, call): i for i, call in enumerate(tool_calls)}
             for future in as_completed(futures):
                 results[futures[future]] = future.result()
 
+        # Record tool results for post-hooks
+        for name, args, result in results:
+            all_tool_results.append({"tool": name, "args": args, "result": result})
+
         # Inject all results as a single user message to preserve ordering
-        combined = "\n\n".join(format_tool_result(name, result) for name, result in results)
+        combined = "\n\n".join(format_tool_result(name, result) for name, _, result in results)
         messages.append({"role": "user", "content": combined})
 
-    if verbose:
-        print(
-            f"[smalltask] Total tokens used: prompt={total_usage['prompt_tokens']} "
-            f"completion={total_usage['completion_tokens']} "
-            f"total={total_usage['total_tokens']}"
-        )
-    return "[max iterations reached]"
+    if final_output is None:
+        if verbose:
+            print(
+                f"[smalltask] Total tokens used: prompt={total_usage['prompt_tokens']} "
+                f"completion={total_usage['completion_tokens']} "
+                f"total={total_usage['total_tokens']}"
+            )
+        final_output = "[max iterations reached]"
+
+    # --- Post-hooks ---
+    if config["post_hook"]:
+        if verbose:
+            print("[smalltask] Running post-hooks...")
+        _run_hooks(config["post_hook"], tools, verbose, output=final_output, tool_results=all_tool_results)
+
+    return final_output
