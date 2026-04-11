@@ -3,6 +3,7 @@ DRAFT.md
 docs/design.md
 
 # Python
+uv.lock
 __pycache__/
 *.py[cod]
 *.egg-info/
