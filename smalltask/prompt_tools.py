@@ -41,12 +41,18 @@ def build_tool_system_prompt(tools: dict) -> str:
         "",
         '<tool_call>{"name": "tool_name", "args": {"param": "value"}}</tool_call>',
         "",
-        "The result will come back as:",
+        "IMPORTANT RULES:",
+        "- STOP your response immediately after the closing </tool_call> tag(s).",
+        "- NEVER generate <tool_result> tags yourself — the system provides those.",
+        "- NEVER simulate, predict, or hallucinate tool results.",
+        "- Wait for the real tool result before continuing.",
+        "",
+        "The system will execute your tool call and return the result as:",
         "",
         '<tool_result name="tool_name">result here</tool_result>',
         "",
-        "You may call tools multiple times. When you have enough information, "
-        "respond normally without any <tool_call> tags.",
+        "You may call multiple tools in one turn by outputting multiple <tool_call> tags.",
+        "When you have enough information, respond normally without any <tool_call> tags.",
     ]
 
     return "\n".join(lines)
