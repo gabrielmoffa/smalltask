@@ -1,0 +1,39 @@
+name: Daily improvement suggestions
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # every day at 9:00 UTC
+  workflow_dispatch:        # manual trigger from GitHub UI
+
+jobs:
+  suggest-improvement:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install smalltask
+
+      - name: Configure git identity
+        run: |
+          git config user.name "smalltask-bot"
+          git config user.email "smalltask-bot@users.noreply.github.com"
+
+      - name: Run daily improvements agent
+        run: smalltask run examples/daily_improvements/agents/daily_improvements.yaml --verbose
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
