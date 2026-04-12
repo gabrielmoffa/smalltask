@@ -21,7 +21,7 @@ prompt: |
      - Fix a subtle bug you spot
      - Improve a variable name for clarity
      - Extract a duplicated pattern into a helper
-  4. Use write_file to make the change
+  4. Use replace_in_file to make the change (provide enough context to match uniquely)
   5. Call create_pr with a clear title and description
 
   Rules:
@@ -38,7 +38,7 @@ prompt: |
 tools:
   - repo.list_repo_files
   - repo.read_file
-  - repo.write_file
+  - repo.replace_in_file
   - github_pr.create_pr
 
 pre_hook:
