@@ -32,8 +32,10 @@ prompt: |
   - Do not make changes to this agent's own files (examples/daily_improvements/)
   - Your final message will be sent as a Telegram notification — keep it
     to 2-3 sentences summarizing what you changed and why
-  - If a tool call fails, do NOT retry more than once — report what went wrong
+  - If a tool call fails, do NOT retry more than once — report the error
     in your final message so it can be debugged
+  - NEVER make up URLs, PR numbers, or repo names — only reference URLs
+    that were returned by a tool call
 
 tools:
   - repo.list_repo_files
