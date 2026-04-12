@@ -17,7 +17,7 @@ Bring your own scheduler (Airflow, cron, GitHub Actions). Bring your own LLM (an
 ## Quickstart
 
 ```bash
-smalltask init                  # scaffold tools/ and agents/
+smalltask init                  # scaffold tools/, agents/, and smalltask.yaml
 smalltask init --template github   # scaffold GitHub tools + PR digest agent
 ```
 
@@ -48,7 +48,7 @@ def get_top_customers(days: int, limit: int) -> list:
     ...
 ```
 
-**Agents** are YAML files. They declare the prompt, which tools to use, and which LLM endpoint to call.
+**Agents** are YAML files. They declare the prompt, which tools to use, and which LLM to call.
 
 ```yaml
 # agents/weekly_review.yaml
@@ -56,9 +56,8 @@ name: weekly_review
 description: Weekly order digest with anomaly detection.
 
 llm:
-  url: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-3.5-sonnet
-  api_key_env: OPENROUTER_API_KEY
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-6-20250514
 
 prompt: |
   You are a data analyst reviewing the last 7 days of orders.
@@ -86,14 +85,57 @@ smalltask run agents/weekly_review.yaml --var week=2024-W01
 
 ---
 
+## Connections
+
+Define LLM provider connections once in a project-level `smalltask.yaml`, then reference them by name in any agent YAML.
+
+```yaml
+# smalltask.yaml
+connections:
+  openrouter:
+    url: https://openrouter.ai/api/v1/chat/completions
+    api_key_env: OPENROUTER_API_KEY
+
+  ollama:
+    url: http://localhost:11434/v1/chat/completions
+
+  groq:
+    url: https://api.groq.com/openai/v1/chat/completions
+    api_key_env: GROQ_API_KEY
+
+  together:
+    url: https://api.together.xyz/v1/chat/completions
+    api_key_env: TOGETHER_API_KEY
+
+  bedrock:
+    url: https://bedrock-runtime.us-east-1.amazonaws.com/v1/chat/completions
+    api_key_env: AWS_SECRET_ACCESS_KEY
+```
+
+Then agent YAMLs stay clean:
+
+```yaml
+llm:
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-6-20250514
+  max_tokens: 2048
+```
+
+The connection provides the URL, auth, and headers. The agent provides (or overrides) the model and other settings. `smalltask init` scaffolds a `smalltask.yaml` with commented-out presets for common providers.
+
+You can still use inline `llm.url` directly if you prefer — connections are optional.
+
+---
+
 ## Project structure
 
 ```
 your-repo/
+├── smalltask.yaml          # connection presets (one per project)
 ├── tools/
-│   ├── orders.py       # get_order_summary, get_top_customers, ...
-│   ├── github.py       # list_open_prs, get_workflow_runs, ...
-│   └── slack.py        # post_message, ...
+│   ├── orders.py           # get_order_summary, get_top_customers, ...
+│   ├── github.py           # list_open_prs, get_workflow_runs, ...
+│   └── slack.py            # post_message, ...
 ├── agents/
 │   ├── weekly_review.yaml
 │   └── github_pr_digest.yaml
@@ -187,9 +229,10 @@ result = run_agent(
 | `description` | no | Human-readable description |
 | `prompt` | yes | System prompt. Supports `$var` interpolation. |
 | `tools` | yes | List of tool names (`file.function` or bare `function`) |
-| `llm.url` | yes | OpenAI-compatible endpoint URL |
+| `llm.connection` | no | Named connection from `smalltask.yaml` |
+| `llm.url` | no | OpenAI-compatible endpoint URL (alternative to `connection`) |
 | `llm.model` | yes | Model identifier |
-| `llm.api_key_env` | no | Name of env var holding the API key |
+| `llm.api_key_env` | no | Name of env var holding the API key (set in connection or here) |
 | `llm.max_tokens` | no | Max tokens per LLM call (default: 4096) |
 | `llm.timeout` | no | HTTP timeout in seconds (default: 120) |
 | `llm.extra_headers` | no | Additional HTTP headers (e.g. `HTTP-Referer`) |
@@ -210,9 +253,8 @@ prompt: |
   Analyze the attached metrics. Flag anomalies. Be direct.
 
 llm:
-  url: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-3.5-sonnet
-  api_key_env: OPENROUTER_API_KEY
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-6-20250514
 
 tools:
   - analysis.plot_revenue
@@ -323,14 +365,29 @@ The orchestrator YAML lists `summarize` in its `tools:` section like any other t
 
 ---
 
+## Examples
+
+### Daily improvement PRs
+
+A fully working example that runs as a daily GitHub Action: reads your codebase, picks one improvement, opens a PR, and notifies you on Telegram.
+
+See [`examples/daily_improvements/`](examples/daily_improvements/) for the tools and agent YAML, and [`.github/workflows/daily_improvements.yml`](.github/workflows/daily_improvements.yml) for the workflow.
+
+Features demonstrated:
+- **Pre-hook** — checks for pending bot PRs (skips if one exists; closes and retries if you commented `/reject`)
+- **Agentic loop** — LLM reads files, decides on an improvement, writes the change, creates a PR
+- **Post-hook** — sends a Telegram notification with the PR link
+
+---
+
 ## Templates
 
 `smalltask init --list` shows available starter templates:
 
 | Template | Scaffolds |
 |---|---|
-| `default` | Generic stub tools + example agent |
-| `github` | GitHub REST API tools + PR digest agent |
+| `default` | Generic stub tools + example agent + `smalltask.yaml` |
+| `github` | GitHub REST API tools + PR digest agent + `smalltask.yaml` |
 
 ```bash
 smalltask init --template github
