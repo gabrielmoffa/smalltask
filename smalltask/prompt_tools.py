@@ -63,7 +63,18 @@ def parse_tool_calls(text: str) -> list[dict]:
     Extract all tool calls from model output.
 
     Returns a list of {"name": str, "args": dict}. Empty list if none found.
+
+    If the model hallucinates ``<tool_result>`` tags (self-simulation), we
+    truncate the text at the first occurrence so that only tool calls issued
+    *before* the hallucinated result are executed.
     """
+    # Guard against self-simulation: ignore everything after a hallucinated
+    # <tool_result> tag, since any subsequent <tool_call> is based on a
+    # result the model fabricated, not a real execution.
+    result_tag_pos = text.find("<tool_result")
+    if result_tag_pos != -1:
+        text = text[:result_tag_pos]
+
     calls = []
     for raw in TOOL_CALL_RE.findall(text):
         try:
