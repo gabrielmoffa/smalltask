@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install smalltask
+      - run: pip install .
 
       - name: Configure git identity
         run: |

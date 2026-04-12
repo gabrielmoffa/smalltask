@@ -202,7 +202,9 @@ def load_tools_from_dir(tools_dir: Path, names: list[str]) -> dict[str, dict]:
 
 def _find_smalltask_config(start_path: Path) -> Path | None:
     """Walk up from *start_path* to find a ``smalltask.yaml`` file."""
-    candidate = start_path if start_path.is_dir() else start_path.parent
+    candidate = start_path.resolve()
+    if not candidate.is_dir():
+        candidate = candidate.parent
     while candidate != candidate.parent:
         config_path = candidate / "smalltask.yaml"
         if config_path.exists():
