@@ -3,7 +3,6 @@
 import importlib.util
 import inspect
 import sys
-import types
 import typing
 from pathlib import Path
 from typing import Any, Callable, Union
