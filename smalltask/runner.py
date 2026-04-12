@@ -7,7 +7,7 @@ from pathlib import Path
 from string import Template
 
 from smalltask.llm import complete
-from smalltask.loader import _DEFAULT_MAX_ITERATIONS, load_agent_config, load_tools_from_dir, resolve_llm_config
+from smalltask.loader import load_agent_config, load_tools_from_dir, resolve_llm_config
 from smalltask.prompt_tools import build_tool_system_prompt, format_tool_result, parse_tool_calls
 
 
