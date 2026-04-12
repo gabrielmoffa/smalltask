@@ -3,7 +3,6 @@
 import importlib.util
 import inspect
 import sys
-import types
 import typing
 from pathlib import Path
 from typing import Any, Callable, Union
@@ -64,9 +63,6 @@ def _build_schema(fn: Callable) -> dict:
     required = []
 
     for name, param in sig.parameters.items():
-        if name == "return":
-            continue
-
         python_type = hints.get(name, str)
         json_type = _resolve_json_type(python_type)
 
