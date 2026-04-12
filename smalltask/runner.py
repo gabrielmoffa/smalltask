@@ -71,7 +71,7 @@ def _resolve_tools_dir(agent_path: Path, tools_dir: Path | None) -> Path:
     )
 
 
-def _collect_hook_tools(hooks: list[dict], tools: dict) -> set[str]:
+def _collect_hook_tools(hooks: list[dict]) -> set[str]:
     """Return the set of tool names referenced by hook entries."""
     return {entry["tool"] for entry in hooks}
 
@@ -176,8 +176,8 @@ def run_agent(
 
     # Collect all tool names needed: agent tools + hook tools
     hook_tool_names = (
-        _collect_hook_tools(config["pre_hook"], {})
-        | _collect_hook_tools(config["post_hook"], {})
+        _collect_hook_tools(config["pre_hook"])
+        | _collect_hook_tools(config["post_hook"])
     )
     all_tool_names = list(config["tools"]) + [n for n in hook_tool_names if n not in config["tools"]]
 
