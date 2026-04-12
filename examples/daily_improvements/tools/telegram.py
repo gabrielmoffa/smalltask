@@ -30,7 +30,7 @@ def notify_telegram(output: str, tool_results: list) -> str:
     if pr_url:
         message = f"New improvement PR:\n{pr_url}"
     else:
-        message = f"Daily improvement agent finished:\n{output[:500]}"
+        message = f"Daily improvement agent finished (no PR created):\n{output[:2000]}"
 
     data = json.dumps({
         "chat_id": chat_id,
