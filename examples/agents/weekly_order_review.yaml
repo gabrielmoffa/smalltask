@@ -2,12 +2,9 @@ name: weekly_order_review
 description: Reviews the last 7 days of orders and surfaces key patterns and anomalies.
 
 llm:
-  url: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-3.5-sonnet
-  api_key_env: OPENROUTER_API_KEY
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-20250514
   max_tokens: 2048
-  # extra_headers:
-  #   HTTP-Referer: https://yoursite.com
 
 prompt: |
   You are a data analyst reviewing the last 7 days of order data.

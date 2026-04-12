@@ -7,7 +7,7 @@ from pathlib import Path
 from string import Template
 
 from smalltask.llm import complete
-from smalltask.loader import _DEFAULT_MAX_ITERATIONS, load_agent_config, load_tools_from_dir
+from smalltask.loader import _DEFAULT_MAX_ITERATIONS, load_agent_config, load_tools_from_dir, resolve_llm_config
 from smalltask.prompt_tools import build_tool_system_prompt, format_tool_result, parse_tool_calls
 
 
@@ -164,9 +164,10 @@ def run_agent(
     max_total_tokens: override the token budget from the agent YAML (default: no limit).
     """
     config = load_agent_config(agent_path)
-    llm_config = config.get("llm")
-    if not llm_config:
+    raw_llm = config.get("llm")
+    if not raw_llm:
         raise ValueError("Agent config must have an `llm` section. See examples/.")
+    llm_config = resolve_llm_config(raw_llm, agent_path)
 
     _max_iterations = max_iterations if max_iterations is not None else config["max_iterations"]
     _max_total_tokens = max_total_tokens if max_total_tokens is not None else config["max_total_tokens"]

@@ -200,6 +200,58 @@ def load_tools_from_dir(tools_dir: Path, names: list[str]) -> dict[str, dict]:
     return found
 
 
+def _find_smalltask_config(start_path: Path) -> Path | None:
+    """Walk up from *start_path* to find a ``smalltask.yaml`` file."""
+    candidate = start_path if start_path.is_dir() else start_path.parent
+    while candidate != candidate.parent:
+        config_path = candidate / "smalltask.yaml"
+        if config_path.exists():
+            return config_path
+        candidate = candidate.parent
+    return None
+
+
+def load_smalltask_config(start_path: Path) -> dict:
+    """Load the project-level ``smalltask.yaml``, if it exists."""
+    path = _find_smalltask_config(start_path)
+    if path is None:
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def resolve_llm_config(llm_block: dict, agent_path: Path) -> dict:
+    """Resolve a ``connection`` reference in the agent's ``llm`` block.
+
+    If ``llm.connection`` is set, the named connection is loaded from
+    ``smalltask.yaml`` and used as defaults.  Any fields set directly in the
+    agent YAML override the connection values.
+
+    If no ``connection`` key is present the block is returned unchanged.
+    """
+    connection_name = llm_block.get("connection")
+    if not connection_name:
+        return llm_block
+
+    config = load_smalltask_config(agent_path)
+    connections = config.get("connections", {})
+
+    if connection_name not in connections:
+        available = ", ".join(sorted(connections)) or "(none)"
+        raise ValueError(
+            f"Connection '{connection_name}' not found in smalltask.yaml. "
+            f"Available: {available}"
+        )
+
+    # Connection provides defaults, agent YAML overrides
+    merged = dict(connections[connection_name])
+    for key, value in llm_block.items():
+        if key != "connection":
+            merged[key] = value
+
+    return merged
+
+
 def load_agent_config(agent_path: Path) -> dict:
     """Load and validate an agent YAML file."""
     with open(agent_path) as f:

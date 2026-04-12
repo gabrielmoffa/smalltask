@@ -7,6 +7,48 @@ import click
 from smalltask.runner import run_agent
 
 # ---------------------------------------------------------------------------
+# Shared: smalltask.yaml with connection presets
+# ---------------------------------------------------------------------------
+
+_SMALLTASK_CONFIG = '''\
+# smalltask.yaml — project-level configuration
+#
+# Define named connections here, then reference them in agent YAMLs with:
+#   llm:
+#     connection: openrouter
+#     model: anthropic/claude-sonnet-4-20250514
+#
+# The connection provides the URL, auth, and headers.
+# The agent YAML provides (or overrides) the model and other settings.
+
+connections:
+  # --- Uncomment and configure the providers you use ---
+
+  openrouter:
+    url: https://openrouter.ai/api/v1/chat/completions
+    api_key_env: OPENROUTER_API_KEY
+    # extra_headers:
+    #   HTTP-Referer: https://yoursite.com
+
+  # ollama:
+  #   url: http://localhost:11434/v1/chat/completions
+
+  # groq:
+  #   url: https://api.groq.com/openai/v1/chat/completions
+  #   api_key_env: GROQ_API_KEY
+
+  # together:
+  #   url: https://api.together.xyz/v1/chat/completions
+  #   api_key_env: TOGETHER_API_KEY
+
+  # bedrock:
+  #   url: https://bedrock-runtime.us-east-1.amazonaws.com/v1/chat/completions
+  #   api_key_env: AWS_SECRET_ACCESS_KEY
+  #   extra_headers:
+  #     X-Amz-Security-Token-Env: AWS_SESSION_TOKEN
+'''
+
+# ---------------------------------------------------------------------------
 # Default (blank) template
 # ---------------------------------------------------------------------------
 
@@ -52,9 +94,8 @@ name: example_agent
 description: Searches records and summarises the dataset.
 
 llm:
-  url: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-3.5-sonnet
-  api_key_env: OPENROUTER_API_KEY
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-20250514
   max_tokens: 2048
 
 prompt: |
@@ -266,9 +307,8 @@ name: github_pr_digest
 description: Weekly digest of open PRs, recent merges, and CI health.
 
 llm:
-  url: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-3.5-sonnet
-  api_key_env: OPENROUTER_API_KEY
+  connection: openrouter
+  model: anthropic/claude-sonnet-4-20250514
   max_tokens: 2048
 
 prompt: |
@@ -384,7 +424,14 @@ def init(directory: Path, template: str, list_templates: bool):
 
     tool_file = tools_dir / tool_filename
     agent_file = agents_dir / agent_filename
+    config_file = directory / "smalltask.yaml"
     created = []
+
+    if not config_file.exists():
+        config_file.write_text(_SMALLTASK_CONFIG)
+        created.append("smalltask.yaml")
+    else:
+        click.echo(f"  skip    smalltask.yaml (already exists)")
 
     if not tool_file.exists():
         tool_file.write_text(tool_content)
