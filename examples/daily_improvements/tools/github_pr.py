@@ -26,6 +26,9 @@ def _github_api(method: str, path: str, data: dict | list | None = None) -> dict
         return json.loads(resp.read())
 
 
+_BRANCH_PREFIX = "smalltask/improvement-"
+
+
 @tool
 def check_pending_pr() -> dict:
     """Check for open improvement PRs from the bot.
@@ -35,14 +38,17 @@ def check_pending_pr() -> dict:
     and allows a new one to be created.
     """
     try:
-        prs = _github_api("GET", "/pulls?state=open&labels=smalltask-bot")
+        prs = _github_api("GET", "/pulls?state=open")
     except Exception:
         return {"status": "ready", "message": "Could not fetch PRs, proceeding anyway"}
 
-    if not prs:
+    # Filter to PRs created by the bot (branch prefix match)
+    bot_prs = [p for p in prs if p.get("head", {}).get("ref", "").startswith(_BRANCH_PREFIX)]
+
+    if not bot_prs:
         return {"status": "ready", "message": "No pending PR — good to go"}
 
-    for pr in prs:
+    for pr in bot_prs:
         number = pr["number"]
         try:
             comments = _github_api("GET", f"/issues/{number}/comments")
@@ -78,7 +84,7 @@ def create_pr(title: str, description: str) -> str:
         description: Markdown body explaining what changed and why.
     """
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    branch = f"smalltask/improvement-{ts}"
+    branch = f"{_BRANCH_PREFIX}{ts}"
 
     subprocess.run(["git", "checkout", "-b", branch], check=True)
     subprocess.run(["git", "add", "-A"], check=True)
@@ -91,11 +97,5 @@ def create_pr(title: str, description: str) -> str:
         "head": branch,
         "base": "main",
     })
-
-    # Label so the pre-hook can find it next time
-    try:
-        _github_api("POST", f"/issues/{pr['number']}/labels", {"labels": ["smalltask-bot"]})
-    except Exception:
-        pass  # label might already exist or permissions may differ
 
     return pr["html_url"]
