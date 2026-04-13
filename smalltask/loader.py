@@ -53,11 +53,10 @@ def _resolve_json_type(python_type: Any) -> str:
 def _build_schema(fn: Callable) -> dict:
     """Generate a JSON Schema input_schema from a function's type hints and docstring."""
     sig = inspect.signature(fn)
-    hints = {}
     try:
-        hints = fn.__annotations__
-    except AttributeError:
-        pass
+        hints = typing.get_type_hints(fn)
+    except Exception:
+        hints = getattr(fn, "__annotations__", {})
 
     properties = {}
     required = []
