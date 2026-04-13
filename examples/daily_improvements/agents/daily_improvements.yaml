@@ -42,9 +42,9 @@ tools:
   - repo.read_file
   - repo.replace_in_file
   - github_pr.create_pr
+  - telegram.notify_telegram
 
 pre_hook:
   - github_pr.check_pending_pr
 
-post_hook:
-  - telegram.notify_telegram
+post_hook: []
