@@ -172,8 +172,6 @@ def run_agent(
     _max_iterations = max_iterations if max_iterations is not None else config["max_iterations"]
     _max_total_tokens = max_total_tokens if max_total_tokens is not None else config["max_total_tokens"]
 
-    resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
-
     # Collect all tool names needed: agent tools + hook tools
     hook_tool_names = (
         _collect_hook_tools(config["pre_hook"])
@@ -181,7 +179,11 @@ def run_agent(
     )
     all_tool_names = list(config["tools"]) + [n for n in hook_tool_names if n not in config["tools"]]
 
-    tools = load_tools_from_dir(resolved_tools_dir, all_tool_names) if all_tool_names else {}
+    if all_tool_names:
+        resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
+        tools = load_tools_from_dir(resolved_tools_dir, all_tool_names)
+    else:
+        tools = {}
     if extra_tools:
         tools = {**tools, **extra_tools}
 
