@@ -30,8 +30,7 @@ prompt: |
   - Do not add comments or docstrings for the sake of it
   - Your PR description must explain WHY the change is an improvement
   - Do not make changes to this agent's own files (examples/daily_improvements/)
-  - Your final message will be sent as a Telegram notification — keep it
-    to 2-3 sentences summarizing what you changed and why
+  - Keep your final message to 2-3 sentences summarizing what you changed and why
   - If a tool call fails, do NOT retry more than once — report the error
     in your final message so it can be debugged
   - NEVER make up URLs, PR numbers, or repo names — only reference URLs
@@ -42,10 +41,10 @@ tools:
   - repo.read_file
   - repo.replace_in_file
   - github_pr.create_pr
-  - telegram.notify_telegram
 
 pre_hook:
   - github_pr.check_pending_pr
 
 post_hook:
   - reviewer.review_pr
+  - telegram.notify_telegram
