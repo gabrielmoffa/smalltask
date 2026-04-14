@@ -273,8 +273,14 @@ def run_agent(
             final_output = response_text.strip()
             break
 
-        # Append assistant message with all tool calls
-        messages.append({"role": "assistant", "content": response_text})
+        # Strip any hallucinated <tool_result> content before adding to history,
+        # so the model doesn't see its own fabricated results in later turns.
+        clean_response = response_text
+        result_tag_pos = clean_response.find("<tool_result")
+        if result_tag_pos != -1:
+            clean_response = clean_response[:result_tag_pos].rstrip()
+
+        messages.append({"role": "assistant", "content": clean_response})
 
         # Execute all tool calls in parallel
         def _execute(call: dict) -> tuple[str, dict, str]:
