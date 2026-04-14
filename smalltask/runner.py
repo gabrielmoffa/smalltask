@@ -172,20 +172,29 @@ def run_agent(
     _max_iterations = max_iterations if max_iterations is not None else config["max_iterations"]
     _max_total_tokens = max_total_tokens if max_total_tokens is not None else config["max_total_tokens"]
 
-    # Collect all tool names needed: agent tools + hook tools
+    # Load agent tools (exposed to the LLM) separately from hook tools
+    agent_tool_names = list(config["tools"])
     hook_tool_names = (
         _collect_hook_tools(config["pre_hook"])
         | _collect_hook_tools(config["post_hook"])
     )
-    all_tool_names = list(config["tools"]) + [n for n in hook_tool_names if n not in config["tools"]]
+    hook_only_names = [n for n in hook_tool_names if n not in agent_tool_names]
 
-    if all_tool_names:
+    all_needed = agent_tool_names + hook_only_names
+    if all_needed:
         resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
-        tools = load_tools_from_dir(resolved_tools_dir, all_tool_names)
+        loaded = load_tools_from_dir(resolved_tools_dir, all_needed)
+        agent_tools = {k: v for k, v in loaded.items() if k in agent_tool_names}
+        hook_tools = {k: v for k, v in loaded.items() if k in hook_only_names}
     else:
-        tools = {}
+        agent_tools = {}
+        hook_tools = {}
+
     if extra_tools:
-        tools = {**tools, **extra_tools}
+        agent_tools = {**agent_tools, **extra_tools}
+
+    # Combined dict for hook execution (hooks may reference agent tools too)
+    all_tools = {**agent_tools, **hook_tools}
 
     prompt = config["prompt"]
     if input_vars:
@@ -194,13 +203,13 @@ def run_agent(
     if verbose:
         print(f"\n[smalltask] Agent: {config['name']}")
         print(f"[smalltask] Model: {llm_config.get('model')}")
-        print(f"[smalltask] Tools: {list(tools.keys())}\n")
+        print(f"[smalltask] Tools: {list(agent_tools.keys())}\n")
 
     # --- Pre-hooks ---
     if config["pre_hook"]:
         if verbose:
             print("[smalltask] Running pre-hooks...")
-        pre_results = _run_hooks(config["pre_hook"], tools, verbose)
+        pre_results = _run_hooks(config["pre_hook"], all_tools, verbose)
 
         # Check if any pre-hook signalled skip
         for entry in pre_results:
@@ -221,7 +230,7 @@ def run_agent(
     else:
         prompt = f"## Task\n\n{prompt}"
 
-    tool_system_prompt = build_tool_system_prompt(tools)
+    tool_system_prompt = build_tool_system_prompt(agent_tools)
     system_content = f"{tool_system_prompt}\n\n{prompt}"
 
     messages = [
@@ -271,7 +280,7 @@ def run_agent(
         def _execute(call: dict) -> tuple[str, dict, str]:
             name = call["name"]
             args = call.get("args", {})
-            fn = tools.get(name, {}).get("fn")
+            fn = agent_tools.get(name, {}).get("fn")
             if fn is None:
                 return name, args, f"Error: tool '{name}' not found"
             if verbose:
@@ -312,6 +321,6 @@ def run_agent(
     if config["post_hook"]:
         if verbose:
             print("[smalltask] Running post-hooks...")
-        _run_hooks(config["post_hook"], tools, verbose, output=final_output, tool_results=all_tool_results)
+        _run_hooks(config["post_hook"], all_tools, verbose, output=final_output, tool_results=all_tool_results)
 
     return final_output
