@@ -99,3 +99,36 @@ def create_pr(title: str, description: str) -> str:
     })
 
     return pr["html_url"]
+
+
+@tool
+def get_pr_diff(pr_number: int) -> str:
+    """Fetch the diff for a pull request.
+
+    Args:
+        pr_number: The PR number to fetch the diff for.
+    """
+    token = os.environ["GITHUB_TOKEN"]
+    repo = os.environ["GITHUB_REPOSITORY"]
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3.diff",
+    }
+
+    import urllib.request
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as resp:
+        return resp.read().decode()
+
+
+@tool
+def comment_pr(pr_number: int, body: str) -> str:
+    """Post a comment on a pull request.
+
+    Args:
+        pr_number: The PR number to comment on.
+        body: The markdown comment body.
+    """
+    _github_api("POST", f"/issues/{pr_number}/comments", {"body": body})
+    return f"Commented on PR #{pr_number}"

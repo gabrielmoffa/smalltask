@@ -47,4 +47,5 @@ tools:
 pre_hook:
   - github_pr.check_pending_pr
 
-post_hook: []
+post_hook:
+  - reviewer.review_pr

@@ -60,7 +60,7 @@ def agent_tool(
 def _resolve_tools_dir(agent_path: Path, tools_dir: Path | None) -> Path:
     if tools_dir:
         return tools_dir
-    candidate = agent_path.parent
+    candidate = agent_path.resolve().parent
     while candidate != candidate.parent:
         tools_candidate = candidate / "tools"
         if tools_candidate.is_dir():
