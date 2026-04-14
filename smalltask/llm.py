@@ -53,10 +53,6 @@ def complete(messages: list[dict], llm_config: dict) -> tuple[str, dict]:
         "model": model,
         "messages": messages,
         "max_tokens": llm_config.get("max_tokens", 4096),
-        # Hard-stop generation when the model tries to fabricate a tool result.
-        # Without this, the model can simulate entire tool_call→tool_result
-        # chains in a single turn, hallucinating results for tools it never ran.
-        "stop": ["<tool_result"],
     }
 
     timeout = llm_config.get("timeout", 120)
