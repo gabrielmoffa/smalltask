@@ -60,6 +60,7 @@ def _build_schema(fn: Callable) -> dict:
 
     properties = {}
     required = []
+    doc_lines = (inspect.getdoc(fn) or "").splitlines()
 
     for name, param in sig.parameters.items():
         python_type = hints.get(name, str)
@@ -68,8 +69,7 @@ def _build_schema(fn: Callable) -> dict:
         prop: dict[str, Any] = {"type": json_type}
 
         # Pull per-param description from docstring (Google style: "param: description")
-        doc = inspect.getdoc(fn) or ""
-        for line in doc.splitlines():
+        for line in doc_lines:
             stripped = line.strip()
             if stripped.startswith(f"{name}:") or stripped.startswith(f"{name} ("):
                 desc = stripped.split(":", 1)[-1].strip()
