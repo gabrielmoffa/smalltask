@@ -239,9 +239,11 @@ def run_agent(
     # --- Tool mode setup ---
     tool_mode = config.get("tool_mode", "native")
     openai_tools = None
+    tool_name_map: dict[str, str] = {}  # sanitized → original
 
     if tool_mode == "native":
-        openai_tools = tools_to_openai_format(agent_tools) if agent_tools else None
+        if agent_tools:
+            openai_tools, tool_name_map = tools_to_openai_format(agent_tools)
         system_content = prompt
     else:
         tool_system_prompt = build_tool_system_prompt(agent_tools)
@@ -281,7 +283,7 @@ def run_agent(
 
         # Extract tool calls based on mode
         if tool_mode == "native":
-            tool_calls = parse_native_tool_calls(message)
+            tool_calls = parse_native_tool_calls(message, name_map=tool_name_map)
         else:
             tool_calls = parse_tool_calls(response_text)
 

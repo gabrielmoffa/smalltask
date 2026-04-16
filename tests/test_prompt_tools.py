@@ -132,12 +132,13 @@ def test_build_prompt_multiple_tools():
 
 def test_tools_to_openai_format_structure():
     tools = {"search": _make_tool("search", "Search records", {"query": {"type": "string"}})}
-    result = tools_to_openai_format(tools)
+    result, name_map = tools_to_openai_format(tools)
     assert len(result) == 1
     assert result[0]["type"] == "function"
     assert result[0]["function"]["name"] == "search"
     assert result[0]["function"]["description"] == "Search records"
     assert result[0]["function"]["parameters"]["properties"]["query"]["type"] == "string"
+    assert name_map == {"search": "search"}
 
 
 def test_tools_to_openai_format_multiple():
@@ -145,14 +146,24 @@ def test_tools_to_openai_format_multiple():
         "a": _make_tool("a", "Tool A"),
         "b": _make_tool("b", "Tool B"),
     }
-    result = tools_to_openai_format(tools)
+    result, name_map = tools_to_openai_format(tools)
     assert len(result) == 2
     names = {r["function"]["name"] for r in result}
     assert names == {"a", "b"}
 
 
 def test_tools_to_openai_format_empty():
-    assert tools_to_openai_format({}) == []
+    result, name_map = tools_to_openai_format({})
+    assert result == []
+    assert name_map == {}
+
+
+def test_tools_to_openai_format_sanitizes_dots():
+    """Dotted names like 'repo.read_file' must be sanitized for the API."""
+    tools = {"repo.read_file": _make_tool("repo.read_file", "Read a file")}
+    result, name_map = tools_to_openai_format(tools)
+    assert result[0]["function"]["name"] == "repo_read_file"
+    assert name_map == {"repo_read_file": "repo.read_file"}
 
 
 # ---------------------------------------------------------------------------
@@ -227,3 +238,16 @@ def test_parse_native_missing_id():
     }
     calls = parse_native_tool_calls(message)
     assert calls[0]["id"] == ""
+
+
+def test_parse_native_with_name_map():
+    """Sanitized names in the response are mapped back to originals."""
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "repo_read_file", "arguments": "{}"}},
+        ],
+    }
+    name_map = {"repo_read_file": "repo.read_file"}
+    calls = parse_native_tool_calls(message, name_map=name_map)
+    assert calls[0]["name"] == "repo.read_file"

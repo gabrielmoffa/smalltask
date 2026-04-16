@@ -5,6 +5,11 @@ import re
 
 TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 
+# Native tool-calling APIs only allow [a-zA-Z0-9_-] in names.
+# Smalltask uses dots for namespacing (e.g. "repo.read_file"), so we
+# sanitize on the way out and restore on the way back.
+_SANITIZE_RE = re.compile(r"[^a-zA-Z0-9_-]")
+
 
 def build_tool_system_prompt(tools: dict) -> str:
     """
@@ -96,29 +101,51 @@ def format_tool_result(name: str, result: str) -> str:
 # Native (OpenAI-compatible) tool calling
 # ---------------------------------------------------------------------------
 
-def tools_to_openai_format(tools: dict) -> list[dict]:
+def _sanitize_tool_name(name: str) -> str:
+    """Replace characters not allowed in OpenAI tool names with underscores."""
+    return _SANITIZE_RE.sub("_", name)
+
+
+def tools_to_openai_format(tools: dict) -> tuple[list[dict], dict[str, str]]:
     """Convert smalltask tool definitions to OpenAI function-calling format.
+
+    Returns (openai_tools, name_map) where name_map maps sanitized names
+    back to original names (e.g. ``{"repo_read_file": "repo.read_file"}``).
 
     This format is supported by OpenRouter, OpenAI, Groq, Together, Ollama,
     and most OpenAI-compatible providers.
     """
-    return [
-        {
+    openai_tools = []
+    name_map: dict[str, str] = {}  # sanitized → original
+
+    for name, tool in tools.items():
+        defn = tool["definition"]
+        safe_name = _sanitize_tool_name(defn["name"])
+        name_map[safe_name] = name
+
+        openai_tools.append({
             "type": "function",
             "function": {
-                "name": tool["definition"]["name"],
-                "description": tool["definition"].get("description", name),
-                "parameters": tool["definition"].get(
+                "name": safe_name,
+                "description": defn.get("description", name),
+                "parameters": defn.get(
                     "input_schema", {"type": "object", "properties": {}}
                 ),
             },
-        }
-        for name, tool in tools.items()
-    ]
+        })
+
+    return openai_tools, name_map
 
 
-def parse_native_tool_calls(message: dict) -> list[dict]:
+def parse_native_tool_calls(
+    message: dict,
+    name_map: dict[str, str] | None = None,
+) -> list[dict]:
     """Extract tool calls from an OpenAI-format assistant message.
+
+    If *name_map* is provided, sanitized names in the response are mapped
+    back to the original smalltask names (e.g. ``repo_read_file`` →
+    ``repo.read_file``).
 
     Returns list of {"name": str, "args": dict, "id": str}.
     Empty list if no tool_calls in the message.
@@ -136,5 +163,7 @@ def parse_native_tool_calls(message: dict) -> list[dict]:
             )
         except (json.JSONDecodeError, TypeError):
             args = {}
-        calls.append({"name": fn["name"], "args": args, "id": tc.get("id", "")})
+        raw_name = fn["name"]
+        resolved_name = name_map.get(raw_name, raw_name) if name_map else raw_name
+        calls.append({"name": resolved_name, "args": args, "id": tc.get("id", "")})
     return calls
