@@ -4,6 +4,7 @@ import importlib.util
 import inspect
 import sys
 import typing
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Union
 
@@ -148,8 +149,6 @@ def load_tools_from_dir(tools_dir: Path, names: list[str]) -> dict[str, dict]:
 
     Returns {name: {"definition": {...}, "fn": fn}}
     """
-    import warnings
-
     found: dict[str, dict] = {}
     remaining = set(names)
 
