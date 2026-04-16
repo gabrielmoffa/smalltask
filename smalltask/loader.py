@@ -263,8 +263,14 @@ def load_agent_config(agent_path: Path) -> dict:
     config.setdefault("max_tokens", 4096)
     config.setdefault("max_iterations", _DEFAULT_MAX_ITERATIONS)
     config.setdefault("max_total_tokens", None)
+    config.setdefault("tool_mode", "native")
     config.setdefault("pre_hook", [])
     config.setdefault("post_hook", [])
+
+    if config["tool_mode"] not in ("native", "prompt"):
+        raise ValueError(
+            f"Invalid tool_mode: {config['tool_mode']!r}. Must be 'native' or 'prompt'."
+        )
 
     # Normalize hooks: each entry is {tool_name: {args}} or just a string (no args)
     for key in ("pre_hook", "post_hook"):

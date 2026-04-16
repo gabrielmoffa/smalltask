@@ -321,9 +321,12 @@ class TestRunAgentWithHooks:
 
         captured_messages = []
 
-        def fake_complete(messages, llm_config):
+        def fake_complete(messages, llm_config, tools=None):
             captured_messages.extend(messages)
-            return "Final analysis.", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            return (
+                {"role": "assistant", "content": "Final analysis."},
+                {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
 
         with patch("smalltask.runner.complete", side_effect=fake_complete):
             result = run_agent(agent_file)
@@ -339,8 +342,11 @@ class TestRunAgentWithHooks:
             post_hook=["hooks.save_report"],
         )
 
-        def fake_complete(messages, llm_config):
-            return "The analysis is complete.", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        def fake_complete(messages, llm_config, tools=None):
+            return (
+                {"role": "assistant", "content": "The analysis is complete."},
+                {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
 
         with patch("smalltask.runner.complete", side_effect=fake_complete):
             result = run_agent(agent_file)
@@ -354,8 +360,11 @@ class TestRunAgentWithHooks:
             post_hook=["hooks.save_report"],
         )
 
-        def fake_complete(messages, llm_config):
-            return "Done.", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        def fake_complete(messages, llm_config, tools=None):
+            return (
+                {"role": "assistant", "content": "Done."},
+                {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            )
 
         with patch("smalltask.runner.complete", side_effect=fake_complete):
             result = run_agent(agent_file)
@@ -400,15 +409,38 @@ class TestRunAgentWithHooks:
 
         call_count = [0]
 
-        def fake_complete(messages, llm_config):
+        def fake_complete(messages, llm_config, tools=None):
             call_count[0] += 1
             if call_count[0] == 1:
                 return (
-                    '<tool_call>{"name": "analysis.plot_revenue", "args": {"days": 7}}</tool_call>\n'
-                    '<tool_call>{"name": "analysis.get_summary", "args": {"days": 7}}</tool_call>',
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "analysis.plot_revenue",
+                                    "arguments": '{"days": 7}',
+                                },
+                            },
+                            {
+                                "id": "call_2",
+                                "type": "function",
+                                "function": {
+                                    "name": "analysis.get_summary",
+                                    "arguments": '{"days": 7}',
+                                },
+                            },
+                        ],
+                    },
                     {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
                 )
-            return "Revenue looks good.", {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20}
+            return (
+                {"role": "assistant", "content": "Revenue looks good."},
+                {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+            )
 
         with patch("smalltask.runner.complete", side_effect=fake_complete):
             result = run_agent(agent_file)

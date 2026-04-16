@@ -90,3 +90,51 @@ def parse_tool_calls(text: str) -> list[dict]:
 
 def format_tool_result(name: str, result: str) -> str:
     return f'<tool_result name="{name}">\n{result}\n</tool_result>'
+
+
+# ---------------------------------------------------------------------------
+# Native (OpenAI-compatible) tool calling
+# ---------------------------------------------------------------------------
+
+def tools_to_openai_format(tools: dict) -> list[dict]:
+    """Convert smalltask tool definitions to OpenAI function-calling format.
+
+    This format is supported by OpenRouter, OpenAI, Groq, Together, Ollama,
+    and most OpenAI-compatible providers.
+    """
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": tool["definition"]["name"],
+                "description": tool["definition"].get("description", name),
+                "parameters": tool["definition"].get(
+                    "input_schema", {"type": "object", "properties": {}}
+                ),
+            },
+        }
+        for name, tool in tools.items()
+    ]
+
+
+def parse_native_tool_calls(message: dict) -> list[dict]:
+    """Extract tool calls from an OpenAI-format assistant message.
+
+    Returns list of {"name": str, "args": dict, "id": str}.
+    Empty list if no tool_calls in the message.
+    """
+    calls = []
+    for tc in message.get("tool_calls", []):
+        if tc.get("type", "function") != "function":
+            continue
+        fn = tc["function"]
+        try:
+            args = (
+                json.loads(fn["arguments"])
+                if isinstance(fn["arguments"], str)
+                else fn["arguments"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            args = {}
+        calls.append({"name": fn["name"], "args": args, "id": tc.get("id", "")})
+    return calls

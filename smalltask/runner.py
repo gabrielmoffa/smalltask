@@ -8,7 +8,13 @@ from string import Template
 
 from smalltask.llm import complete
 from smalltask.loader import _DEFAULT_MAX_ITERATIONS, load_agent_config, load_tools_from_dir, resolve_llm_config
-from smalltask.prompt_tools import build_tool_system_prompt, format_tool_result, parse_tool_calls
+from smalltask.prompt_tools import (
+    build_tool_system_prompt,
+    format_tool_result,
+    parse_native_tool_calls,
+    parse_tool_calls,
+    tools_to_openai_format,
+)
 
 
 def agent_tool(
@@ -230,8 +236,19 @@ def run_agent(
     else:
         prompt = f"## Task\n\n{prompt}"
 
-    tool_system_prompt = build_tool_system_prompt(agent_tools)
-    system_content = f"{tool_system_prompt}\n\n{prompt}"
+    # --- Tool mode setup ---
+    tool_mode = config.get("tool_mode", "native")
+    openai_tools = None
+
+    if tool_mode == "native":
+        openai_tools = tools_to_openai_format(agent_tools) if agent_tools else None
+        system_content = prompt
+    else:
+        tool_system_prompt = build_tool_system_prompt(agent_tools)
+        system_content = f"{tool_system_prompt}\n\n{prompt}"
+
+    if verbose:
+        print(f"[smalltask] Tool mode: {tool_mode}")
 
     messages = [
         {"role": "system", "content": system_content},
@@ -243,7 +260,7 @@ def run_agent(
     final_output = None
 
     for iteration in range(_max_iterations):
-        response_text, usage = complete(messages, llm_config)
+        message, usage = complete(messages, llm_config, tools=openai_tools)
 
         for key in total_usage:
             total_usage[key] += usage[key]
@@ -256,11 +273,17 @@ def run_agent(
             final_output = "[token budget exceeded]"
             break
 
+        response_text = message.get("content") or ""
+
         if verbose:
             print(f"[smalltask] Response (iter {iteration + 1}):\n{response_text}\n")
             print(f"[smalltask] Tokens this call: prompt={usage['prompt_tokens']} completion={usage['completion_tokens']}")
 
-        tool_calls = parse_tool_calls(response_text)
+        # Extract tool calls based on mode
+        if tool_mode == "native":
+            tool_calls = parse_native_tool_calls(message)
+        else:
+            tool_calls = parse_tool_calls(response_text)
 
         if not tool_calls:
             # No tool calls — this is the final answer
@@ -273,14 +296,22 @@ def run_agent(
             final_output = response_text.strip()
             break
 
-        # Strip any hallucinated <tool_result> content before adding to history,
-        # so the model doesn't see its own fabricated results in later turns.
-        clean_response = response_text
-        result_tag_pos = clean_response.find("<tool_result")
-        if result_tag_pos != -1:
-            clean_response = clean_response[:result_tag_pos].rstrip()
-
-        messages.append({"role": "assistant", "content": clean_response})
+        # Add assistant message to history
+        if tool_mode == "native":
+            # Preserve the full message including tool_calls for the API
+            assistant_msg = {"role": "assistant"}
+            if message.get("content") is not None:
+                assistant_msg["content"] = message["content"]
+            if message.get("tool_calls"):
+                assistant_msg["tool_calls"] = message["tool_calls"]
+            messages.append(assistant_msg)
+        else:
+            # Prompt mode: strip hallucinated <tool_result> tags
+            clean_response = response_text
+            result_tag_pos = clean_response.find("<tool_result")
+            if result_tag_pos != -1:
+                clean_response = clean_response[:result_tag_pos].rstrip()
+            messages.append({"role": "assistant", "content": clean_response})
 
         # Execute all tool calls in parallel
         def _execute(call: dict) -> tuple[str, dict, str]:
@@ -310,9 +341,21 @@ def run_agent(
         for name, args, result in results:
             all_tool_results.append({"tool": name, "args": args, "result": result})
 
-        # Inject all results as a single user message to preserve ordering
-        combined = "\n\n".join(format_tool_result(name, result) for name, _, result in results)
-        messages.append({"role": "user", "content": combined})
+        # Add tool results to message history
+        if tool_mode == "native":
+            # Each tool result is a separate message with role "tool"
+            for call, (name, _args, result) in zip(tool_calls, results):
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call.get("id", ""),
+                    "content": result,
+                })
+        else:
+            # Prompt mode: combine results as a user message with XML tags
+            combined = "\n\n".join(
+                format_tool_result(name, result) for name, _, result in results
+            )
+            messages.append({"role": "user", "content": combined})
 
     if final_output is None:
         if verbose:

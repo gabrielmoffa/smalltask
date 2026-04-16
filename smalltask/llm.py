@@ -22,14 +22,22 @@ from typing import Any
 import httpx
 
 
-def complete(messages: list[dict], llm_config: dict) -> tuple[str, dict]:
+def complete(
+    messages: list[dict],
+    llm_config: dict,
+    tools: list[dict] | None = None,
+) -> tuple[dict, dict]:
     """
-    Send messages to the configured LLM endpoint and return (response_text, usage).
+    Send messages to the configured LLM endpoint and return (message, usage).
 
-    usage dict contains prompt_tokens, completion_tokens, total_tokens (0 if not reported).
+    message: the assistant message dict from the API response.  Always contains
+        ``"role"`` and ``"content"`` (which may be ``None``).  When the model
+        invokes tools it also contains ``"tool_calls"``.
+    usage: dict with prompt_tokens, completion_tokens, total_tokens (0 if absent).
 
-    messages: list of {"role": "user"|"assistant"|"system", "content": "..."}
+    messages: list of {"role": "user"|"assistant"|"system"|"tool", "content": "..."}
     llm_config: dict from agent YAML's `llm` key
+    tools: optional list of tool definitions in OpenAI function-calling format
     """
     url = llm_config.get("url")
     if not url:
@@ -55,6 +63,9 @@ def complete(messages: list[dict], llm_config: dict) -> tuple[str, dict]:
         "max_tokens": llm_config.get("max_tokens", 4096),
     }
 
+    if tools:
+        payload["tools"] = tools
+
     timeout = llm_config.get("timeout", 120)
 
     response = httpx.post(url, headers=headers, json=payload, timeout=timeout)
@@ -67,7 +78,7 @@ def complete(messages: list[dict], llm_config: dict) -> tuple[str, dict]:
     data = response.json()
 
     try:
-        text = data["choices"][0]["message"]["content"]
+        message = data["choices"][0]["message"]
     except (KeyError, IndexError) as e:
         raise RuntimeError(f"Unexpected LLM response shape: {e}\n{json.dumps(data)[:500]}")
 
@@ -77,4 +88,4 @@ def complete(messages: list[dict], llm_config: dict) -> tuple[str, dict]:
         "completion_tokens": raw_usage.get("completion_tokens", 0),
         "total_tokens": raw_usage.get("total_tokens", 0),
     }
-    return text, usage
+    return message, usage

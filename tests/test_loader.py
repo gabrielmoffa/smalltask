@@ -218,3 +218,24 @@ def test_load_agent_config_custom_token_budget(tmp_path):
     f.write_text("name: t\nprompt: p\ntools: []\nmax_total_tokens: 10000\n")
     config = load_agent_config(f)
     assert config["max_total_tokens"] == 10000
+
+
+def test_load_agent_config_tool_mode_defaults_to_native(tmp_path):
+    f = tmp_path / "agent.yaml"
+    f.write_text("name: t\nprompt: p\ntools: []\n")
+    config = load_agent_config(f)
+    assert config["tool_mode"] == "native"
+
+
+def test_load_agent_config_tool_mode_prompt(tmp_path):
+    f = tmp_path / "agent.yaml"
+    f.write_text("name: t\nprompt: p\ntools: []\ntool_mode: prompt\n")
+    config = load_agent_config(f)
+    assert config["tool_mode"] == "prompt"
+
+
+def test_load_agent_config_invalid_tool_mode(tmp_path):
+    f = tmp_path / "agent.yaml"
+    f.write_text("name: t\nprompt: p\ntools: []\ntool_mode: bad\n")
+    with pytest.raises(ValueError, match="Invalid tool_mode"):
+        load_agent_config(f)

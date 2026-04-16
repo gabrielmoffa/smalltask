@@ -5,7 +5,9 @@ import pytest
 from smalltask.prompt_tools import (
     build_tool_system_prompt,
     format_tool_result,
+    parse_native_tool_calls,
     parse_tool_calls,
+    tools_to_openai_format,
 )
 
 
@@ -122,3 +124,106 @@ def test_build_prompt_multiple_tools():
     prompt = build_tool_system_prompt(tools)
     assert "Tool A" in prompt
     assert "Tool B" in prompt
+
+
+# ---------------------------------------------------------------------------
+# tools_to_openai_format
+# ---------------------------------------------------------------------------
+
+def test_tools_to_openai_format_structure():
+    tools = {"search": _make_tool("search", "Search records", {"query": {"type": "string"}})}
+    result = tools_to_openai_format(tools)
+    assert len(result) == 1
+    assert result[0]["type"] == "function"
+    assert result[0]["function"]["name"] == "search"
+    assert result[0]["function"]["description"] == "Search records"
+    assert result[0]["function"]["parameters"]["properties"]["query"]["type"] == "string"
+
+
+def test_tools_to_openai_format_multiple():
+    tools = {
+        "a": _make_tool("a", "Tool A"),
+        "b": _make_tool("b", "Tool B"),
+    }
+    result = tools_to_openai_format(tools)
+    assert len(result) == 2
+    names = {r["function"]["name"] for r in result}
+    assert names == {"a", "b"}
+
+
+def test_tools_to_openai_format_empty():
+    assert tools_to_openai_format({}) == []
+
+
+# ---------------------------------------------------------------------------
+# parse_native_tool_calls
+# ---------------------------------------------------------------------------
+
+def test_parse_native_single_call():
+    message = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_abc",
+                "type": "function",
+                "function": {"name": "search", "arguments": '{"query": "hello"}'},
+            }
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert len(calls) == 1
+    assert calls[0] == {"name": "search", "args": {"query": "hello"}, "id": "call_abc"}
+
+
+def test_parse_native_multiple_calls():
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "a", "arguments": "{}"}},
+            {"id": "c2", "type": "function", "function": {"name": "b", "arguments": '{"x": 1}'}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert len(calls) == 2
+    assert calls[0]["name"] == "a"
+    assert calls[1]["args"] == {"x": 1}
+
+
+def test_parse_native_no_tool_calls():
+    message = {"role": "assistant", "content": "Just text."}
+    assert parse_native_tool_calls(message) == []
+
+
+def test_parse_native_dict_arguments():
+    """Some providers return arguments as a dict instead of a JSON string."""
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "foo", "arguments": {"bar": 42}}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert calls[0]["args"] == {"bar": 42}
+
+
+def test_parse_native_malformed_arguments():
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "foo", "arguments": "not json"}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert calls[0]["args"] == {}
+
+
+def test_parse_native_missing_id():
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"type": "function", "function": {"name": "foo", "arguments": "{}"}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert calls[0]["id"] == ""
