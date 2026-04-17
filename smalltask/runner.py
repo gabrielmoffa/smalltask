@@ -261,6 +261,23 @@ def run_agent(
     all_tool_results: list[dict] = []
     final_output = None
 
+    def _execute(call: dict) -> tuple[str, dict, str]:
+        name = call["name"]
+        args = call.get("args", {})
+        fn = agent_tools.get(name, {}).get("fn")
+        if fn is None:
+            return name, args, f"Error: tool '{name}' not found"
+        if verbose:
+            print(f"[smalltask] Tool call: {name}({json.dumps(args)})")
+        try:
+            raw = fn(**args)
+            result = json.dumps(raw) if not isinstance(raw, str) else raw
+        except Exception as e:
+            result = f"Error: {e}"
+        if verbose:
+            print(f"[smalltask] Tool result ({name}): {result[:300]}\n")
+        return name, args, result
+
     for iteration in range(_max_iterations):
         message, usage = complete(messages, llm_config, tools=openai_tools)
 
@@ -314,24 +331,6 @@ def run_agent(
             if result_tag_pos != -1:
                 clean_response = clean_response[:result_tag_pos].rstrip()
             messages.append({"role": "assistant", "content": clean_response})
-
-        # Execute all tool calls in parallel
-        def _execute(call: dict) -> tuple[str, dict, str]:
-            name = call["name"]
-            args = call.get("args", {})
-            fn = agent_tools.get(name, {}).get("fn")
-            if fn is None:
-                return name, args, f"Error: tool '{name}' not found"
-            if verbose:
-                print(f"[smalltask] Tool call: {name}({json.dumps(args)})")
-            try:
-                raw = fn(**args)
-                result = json.dumps(raw) if not isinstance(raw, str) else raw
-            except Exception as e:
-                result = f"Error: {e}"
-            if verbose:
-                print(f"[smalltask] Tool result ({name}): {result[:300]}\n")
-            return name, args, result
 
         results: list[tuple[str, dict, str]] = [None] * len(tool_calls)  # type: ignore[list-item]
         with ThreadPoolExecutor(max_workers=len(tool_calls)) as pool:
