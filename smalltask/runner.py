@@ -180,18 +180,20 @@ def run_agent(
 
     # Load agent tools (exposed to the LLM) separately from hook tools
     agent_tool_names = list(config["tools"])
+    agent_tool_name_set = set(agent_tool_names)
     hook_tool_names = (
         _collect_hook_tools(config["pre_hook"])
         | _collect_hook_tools(config["post_hook"])
     )
-    hook_only_names = [n for n in hook_tool_names if n not in agent_tool_names]
+    hook_only_names = [n for n in hook_tool_names if n not in agent_tool_name_set]
 
+    hook_only_name_set = set(hook_only_names)
     all_needed = agent_tool_names + hook_only_names
     if all_needed:
         resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
         loaded = load_tools_from_dir(resolved_tools_dir, all_needed)
-        agent_tools = {k: v for k, v in loaded.items() if k in agent_tool_names}
-        hook_tools = {k: v for k, v in loaded.items() if k in hook_only_names}
+        agent_tools = {k: v for k, v in loaded.items() if k in agent_tool_name_set}
+        hook_tools = {k: v for k, v in loaded.items() if k in hook_only_name_set}
     else:
         agent_tools = {}
         hook_tools = {}
