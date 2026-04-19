@@ -1,4 +1,4 @@
-"""Core agent runner: load config + tools, run prompt-based agentic loop."""
+"""Core agent runner: load config + tools, run native tool-calling agentic loop."""
 
 import inspect
 import json
@@ -159,7 +159,7 @@ def run_agent(
     """
     Run an agent defined by a YAML file.
 
-    Tool calling is prompt-based — no provider SDK required.
+    Tool calling uses native OpenAI-compatible function calling — no provider SDK required.
     The LLM endpoint is configured in the agent YAML under `llm`.
 
     extra_tools: optional dict of {name: tool_entry} to inject alongside the

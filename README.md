@@ -397,7 +397,7 @@ smalltask init --template github
 
 ## LLM compatibility
 
-smalltask uses prompt-based tool calling over raw HTTP — no SDK, no provider lock-in. It works with any OpenAI-compatible endpoint:
+smalltask uses native OpenAI-compatible tool calling over raw HTTP — no SDK, no provider lock-in. It works with any endpoint that supports the OpenAI tool-calling format:
 
 - [OpenRouter](https://openrouter.ai) — access any model via one API key
 - [Ollama](https://ollama.com) — local models
