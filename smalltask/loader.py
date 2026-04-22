@@ -3,6 +3,7 @@
 import importlib.util
 import inspect
 import sys
+import types
 import typing
 import warnings
 from pathlib import Path
@@ -33,8 +34,9 @@ def _resolve_json_type(python_type: Any) -> str:
     origin = typing.get_origin(python_type)
     args = typing.get_args(python_type)
 
-    if origin is Union:
+    if origin is Union or isinstance(python_type, types.UnionType):
         # Optional[X] is Union[X, None] — use the first non-None type
+        # Also handles Python 3.10+ `X | Y` union syntax
         non_none = [a for a in args if a is not type(None)]
         if non_none:
             return _resolve_json_type(non_none[0])
