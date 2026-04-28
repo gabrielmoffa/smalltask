@@ -154,17 +154,24 @@ def parse_native_tool_calls(
         return []
 
     calls = []
-    for tc in message.get("tool_calls", []):
+    for tc in message.get("tool_calls") or []:
+        if not isinstance(tc, dict):
+            continue
         if tc.get("type", "function") != "function":
             continue
-        fn = tc["function"]
+        fn = tc.get("function") or {}
+        if not isinstance(fn, dict) or not fn.get("name"):
+            continue
         try:
+            raw_args = fn.get("arguments", {})
             args = (
-                json.loads(fn["arguments"])
-                if isinstance(fn["arguments"], str)
-                else fn["arguments"]
+                json.loads(raw_args)
+                if isinstance(raw_args, str)
+                else raw_args
             )
         except (json.JSONDecodeError, TypeError):
+            args = {}
+        if not isinstance(args, dict):
             args = {}
         raw_name = fn["name"]
         resolved_name = name_map.get(raw_name, raw_name) if name_map else raw_name

@@ -57,6 +57,14 @@ def test_optional_unwraps_to_inner_type():
     assert schema["properties"]["name"]["type"] == "string"
 
 
+def test_pep604_optional_unwraps_to_inner_type():
+    def fn(name: str | None = None) -> None:
+        pass
+
+    schema = _build_schema(fn)
+    assert schema["properties"]["name"]["type"] == "string"
+
+
 def test_unknown_type_falls_back_to_string():
     class Custom:
         pass

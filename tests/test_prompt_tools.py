@@ -210,6 +210,11 @@ def test_parse_native_none_message():
     assert parse_native_tool_calls(None) == []
 
 
+def test_parse_native_null_tool_calls():
+    message = {"role": "assistant", "content": "No calls.", "tool_calls": None}
+    assert parse_native_tool_calls(message) == []
+
+
 def test_parse_native_dict_arguments():
     """Some providers return arguments as a dict instead of a JSON string."""
     message = {
@@ -231,6 +236,29 @@ def test_parse_native_malformed_arguments():
     }
     calls = parse_native_tool_calls(message)
     assert calls[0]["args"] == {}
+
+
+def test_parse_native_null_arguments():
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "foo", "arguments": None}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert calls[0]["args"] == {}
+
+
+def test_parse_native_skips_null_tool_call_entries():
+    message = {
+        "role": "assistant",
+        "tool_calls": [
+            None,
+            {"id": "c1", "type": "function", "function": {"name": "foo", "arguments": "{}"}},
+        ],
+    }
+    calls = parse_native_tool_calls(message)
+    assert calls == [{"name": "foo", "args": {}, "id": "c1"}]
 
 
 def test_parse_native_missing_id():
