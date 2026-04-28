@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Newest first.
 
 ---
 
+## [0.3.2] — 2026-04-28
+
+### Fixed
+- Native tool-call parsing now safely handles a missing assistant message.
+- LLM requests can use `max_completion_tokens` without also sending `max_tokens`.
+
+---
+
 ## [0.1.0] — 2025-04-09
 
 Initial release.
