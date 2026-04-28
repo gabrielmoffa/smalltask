@@ -53,6 +53,30 @@ def _resolve_json_type(python_type: Any) -> str:
     return "string"
 
 
+def _build_property_schema(python_type: Any) -> dict[str, Any]:
+    """Build a JSON Schema property for a Python type annotation."""
+    origin = typing.get_origin(python_type)
+    args = typing.get_args(python_type)
+
+    if origin is Union or isinstance(python_type, types.UnionType):
+        non_none = [a for a in args if a is not type(None)]
+        if non_none:
+            return _build_property_schema(non_none[0])
+
+    json_type = _resolve_json_type(python_type)
+    prop: dict[str, Any] = {"type": json_type}
+
+    if json_type == "array":
+        item_type = args[0] if args else Any
+        prop["items"] = (
+            {}
+            if item_type is Any
+            else _build_property_schema(item_type)
+        )
+
+    return prop
+
+
 def _build_schema(fn: Callable) -> dict:
     """Generate a JSON Schema input_schema from a function's type hints and docstring."""
     sig = inspect.signature(fn)
@@ -67,9 +91,7 @@ def _build_schema(fn: Callable) -> dict:
 
     for name, param in sig.parameters.items():
         python_type = hints.get(name, str)
-        json_type = _resolve_json_type(python_type)
-
-        prop: dict[str, Any] = {"type": json_type}
+        prop = _build_property_schema(python_type)
 
         # Pull per-param description from docstring (Google style: "param: description")
         for line in doc_lines:

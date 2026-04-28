@@ -4,6 +4,13 @@ All notable changes to this project will be documented here. Newest first.
 
 ---
 
+## [0.3.4] — 2026-04-28
+
+### Fixed
+- Array parameters in generated tool schemas now include `items`, matching OpenAI's schema requirements.
+
+---
+
 ## [0.3.3] — 2026-04-28
 
 ### Fixed

@@ -30,6 +30,7 @@ def test_plain_list_and_dict():
 
     schema = _build_schema(fn)
     assert schema["properties"]["items"]["type"] == "array"
+    assert schema["properties"]["items"]["items"] == {}
     assert schema["properties"]["meta"]["type"] == "object"
 
 
@@ -39,6 +40,32 @@ def test_generic_list():
 
     schema = _build_schema(fn)
     assert schema["properties"]["tags"]["type"] == "array"
+    assert schema["properties"]["tags"]["items"] == {"type": "string"}
+
+
+def test_builtin_generic_list_has_items_schema():
+    def fn(ids: list[int]) -> None:
+        pass
+
+    schema = _build_schema(fn)
+    assert schema["properties"]["ids"] == {
+        "type": "array",
+        "items": {"type": "integer"},
+    }
+
+
+def test_nested_list_has_nested_items_schema():
+    def fn(rows: list[list[str]]) -> None:
+        pass
+
+    schema = _build_schema(fn)
+    assert schema["properties"]["rows"] == {
+        "type": "array",
+        "items": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    }
 
 
 def test_generic_dict():
