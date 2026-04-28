@@ -138,7 +138,7 @@ def tools_to_openai_format(tools: dict) -> tuple[list[dict], dict[str, str]]:
 
 
 def parse_native_tool_calls(
-    message: dict,
+    message: dict | None,
     name_map: dict[str, str] | None = None,
 ) -> list[dict]:
     """Extract tool calls from an OpenAI-format assistant message.
@@ -150,6 +150,9 @@ def parse_native_tool_calls(
     Returns list of {"name": str, "args": dict, "id": str}.
     Empty list if no tool_calls in the message.
     """
+    if not message:
+        return []
+
     calls = []
     for tc in message.get("tool_calls", []):
         if tc.get("type", "function") != "function":

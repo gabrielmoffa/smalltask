@@ -11,6 +11,7 @@ Agent YAML config:
       model: anthropic/claude-opus-4-6
       api_key_env: OPENROUTER_API_KEY   # env var name, not the key itself
       max_tokens: 4096                  # optional
+      max_completion_tokens: 4096       # optional, for newer OpenAI models
       extra_headers:                    # optional
         HTTP-Referer: https://yoursite.com
 """
@@ -60,8 +61,11 @@ def complete(
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": llm_config.get("max_tokens", 4096),
     }
+    if "max_completion_tokens" in llm_config:
+        payload["max_completion_tokens"] = llm_config["max_completion_tokens"]
+    else:
+        payload["max_tokens"] = llm_config.get("max_tokens", 4096)
 
     if tools:
         payload["tools"] = tools

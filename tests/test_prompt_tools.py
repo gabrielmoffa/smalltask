@@ -206,6 +206,10 @@ def test_parse_native_no_tool_calls():
     assert parse_native_tool_calls(message) == []
 
 
+def test_parse_native_none_message():
+    assert parse_native_tool_calls(None) == []
+
+
 def test_parse_native_dict_arguments():
     """Some providers return arguments as a dict instead of a JSON string."""
     message = {
