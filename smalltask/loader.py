@@ -282,8 +282,6 @@ def load_agent_config(agent_path: Path) -> dict:
     if missing:
         raise ValueError(f"Agent config missing required keys: {missing}")
 
-    config.setdefault("model", "claude-opus-4-6")
-    config.setdefault("max_tokens", 4096)
     config.setdefault("max_iterations", _DEFAULT_MAX_ITERATIONS)
     config.setdefault("max_total_tokens", None)
     config.setdefault("tool_mode", "native")

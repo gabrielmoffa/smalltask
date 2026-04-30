@@ -229,7 +229,6 @@ def test_load_agent_config_valid(tmp_path):
     f.write_text("name: test\nprompt: hello\ntools:\n  - foo\n")
     config = load_agent_config(f)
     assert config["name"] == "test"
-    assert config["max_tokens"] == 4096
     assert config["max_iterations"] == 20
     assert config["max_total_tokens"] is None
 
