@@ -210,7 +210,7 @@ def load_tools_from_dir(tools_dir: Path, names: list[str]) -> dict[str, dict]:
                     )
                 else:
                     found[name] = file_tools[name]
-                    remaining.discard(name)
+                remaining.discard(name)
 
     if remaining:
         raise ValueError(f"Tools not found in {tools_dir}: {sorted(remaining)}")
