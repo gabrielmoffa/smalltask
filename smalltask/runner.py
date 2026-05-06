@@ -267,7 +267,7 @@ def run_agent(
         if fn is None:
             return name, args, f"Error: tool '{name}' not found"
         if verbose:
-            print(f"[smalltask] Tool call: {name}({json.dumps(args)})")
+            print(f"[smalltask] Tool call: {name}({json.dumps(args, default=str)})")
         try:
             raw = fn(**args)
             result = json.dumps(raw) if not isinstance(raw, str) else raw
