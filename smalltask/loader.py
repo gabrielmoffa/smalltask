@@ -116,7 +116,7 @@ def _build_schema(fn: Callable) -> dict:
 
 def load_tool(fn: Callable) -> dict:
     """
-    Convert a Python function into an Anthropic tool definition dict.
+    Convert a Python function into a smalltask tool entry dict.
 
     Returns {"definition": {...}, "fn": fn}
     """
