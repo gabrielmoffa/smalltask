@@ -331,11 +331,12 @@ def run_agent(
                 clean_response = clean_response[:result_tag_pos].rstrip()
             messages.append({"role": "assistant", "content": clean_response})
 
-        results: list[tuple[str, dict, str]] = [None] * len(tool_calls)  # type: ignore[list-item]
+        indexed: dict[int, tuple[str, dict, str]] = {}
         with ThreadPoolExecutor(max_workers=len(tool_calls)) as pool:
             futures = {pool.submit(_execute, call): i for i, call in enumerate(tool_calls)}
             for future in as_completed(futures):
-                results[futures[future]] = future.result()
+                indexed[futures[future]] = future.result()
+        results = [indexed[i] for i in range(len(tool_calls))]
 
         # Record tool results for post-hooks
         for name, args, result in results:
