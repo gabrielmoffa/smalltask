@@ -309,12 +309,6 @@ def run_agent(
 
         if not tool_calls:
             # No tool calls — this is the final answer
-            if verbose:
-                print(
-                    f"[smalltask] Total tokens used: prompt={total_usage['prompt_tokens']} "
-                    f"completion={total_usage['completion_tokens']} "
-                    f"total={total_usage['total_tokens']}"
-                )
             final_output = response_text.strip()
             break
 
@@ -363,13 +357,14 @@ def run_agent(
             messages.append({"role": "user", "content": combined})
 
     if final_output is None:
-        if verbose:
-            print(
-                f"[smalltask] Total tokens used: prompt={total_usage['prompt_tokens']} "
-                f"completion={total_usage['completion_tokens']} "
-                f"total={total_usage['total_tokens']}"
-            )
         final_output = "[max iterations reached]"
+
+    if verbose:
+        print(
+            f"[smalltask] Total tokens used: prompt={total_usage['prompt_tokens']} "
+            f"completion={total_usage['completion_tokens']} "
+            f"total={total_usage['total_tokens']}"
+        )
 
     # --- Post-hooks ---
     if config["post_hook"]:
