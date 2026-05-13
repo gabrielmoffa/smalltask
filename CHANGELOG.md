@@ -4,6 +4,13 @@ All notable changes to this project will be documented here. Newest first.
 
 ---
 
+## [0.3.5] — 2026-05-13
+
+### Changed
+- Release the current `main` package state to PyPI.
+
+---
+
 ## [0.3.4] — 2026-04-28
 
 ### Fixed
