@@ -4,6 +4,17 @@ All notable changes to this project will be documented here. Newest first.
 
 ---
 
+## [0.3.6] — 2026-05-13
+
+### Added
+- LLM configs can pass a `reasoning` block through to compatible chat endpoints.
+
+### Fixed
+- Verbose output now displays reasoning text returned as either `reasoning_content` or `reasoning`.
+- In-memory `extra_tools` are no longer loaded from disk before being injected.
+
+---
+
 ## [0.3.5] — 2026-05-13
 
 ### Changed
