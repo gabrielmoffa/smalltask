@@ -70,6 +70,9 @@ def complete(
     if tools:
         payload["tools"] = tools
 
+    if "reasoning" in llm_config:
+        payload["reasoning"] = llm_config["reasoning"]
+
     timeout = llm_config.get("timeout", 120)
 
     response = httpx.post(url, headers=headers, json=payload, timeout=timeout)

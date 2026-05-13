@@ -292,8 +292,11 @@ def run_agent(
             break
 
         response_text = message.get("content") or ""
+        reasoning_text = message.get("reasoning_content") or ""
 
         if verbose:
+            if reasoning_text:
+                print(f"[smalltask] Reasoning (iter {iteration + 1}):\n{reasoning_text}\n")
             print(f"[smalltask] Response (iter {iteration + 1}):\n{response_text}\n")
             print(f"[smalltask] Tokens this call: prompt={usage['prompt_tokens']} completion={usage['completion_tokens']}")
 
