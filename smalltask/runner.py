@@ -185,7 +185,8 @@ def run_agent(
         | _collect_hook_tools(config["post_hook"])
     )
     hook_only_name_set = hook_tool_names - agent_tool_name_set
-    all_needed = agent_tool_names + list(hook_only_name_set)
+    extra_tool_names = set(extra_tools.keys()) if extra_tools else set()
+    all_needed = [n for n in agent_tool_names + list(hook_only_name_set) if n not in extra_tool_names]
     if all_needed:
         resolved_tools_dir = _resolve_tools_dir(agent_path, tools_dir)
         loaded = load_tools_from_dir(resolved_tools_dir, all_needed)
