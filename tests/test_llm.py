@@ -42,3 +42,20 @@ def test_complete_uses_max_completion_tokens_when_configured():
     payload = post.call_args.kwargs["json"]
     assert payload["max_completion_tokens"] == 200
     assert "max_tokens" not in payload
+
+
+def test_complete_forwards_reasoning_config():
+    reasoning = {"effort": "medium", "summary": "auto"}
+
+    with patch("smalltask.llm.httpx.post", return_value=_response()) as post:
+        complete(
+            [{"role": "user", "content": "hello"}],
+            {
+                "url": "https://example.test/chat",
+                "model": "test-model",
+                "reasoning": reasoning,
+            },
+        )
+
+    payload = post.call_args.kwargs["json"]
+    assert payload["reasoning"] == reasoning

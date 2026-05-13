@@ -460,3 +460,35 @@ class TestRunAgentWithHooks:
         assert "analysis.get_summary" in tool_names
         plot_entry = next(r for r in captured if r["tool"] == "analysis.plot_revenue")
         assert plot_entry["result"] == "/tmp/charts/revenue_7d.png"
+
+
+def test_verbose_logs_reasoning_fields(tmp_path, capsys):
+    agent_file = tmp_path / "agent.yaml"
+    agent_file.write_text(textwrap.dedent("""\
+        name: reasoning_test
+        prompt: Answer directly.
+        llm:
+          url: http://fake
+          model: fake-model
+        tools: []
+    """))
+
+    responses = iter([
+        {"role": "assistant", "content": "First.", "reasoning": "OpenRouter reasoning."},
+        {"role": "assistant", "content": "Second.", "reasoning_content": "Provider reasoning."},
+    ])
+
+    def fake_complete(messages, llm_config, tools=None):
+        return next(responses), {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    with patch("smalltask.runner.complete", side_effect=fake_complete):
+        assert run_agent(agent_file, verbose=True) == "First."
+
+    output = capsys.readouterr().out
+    assert "OpenRouter reasoning." in output
+
+    with patch("smalltask.runner.complete", side_effect=fake_complete):
+        assert run_agent(agent_file, verbose=True) == "Second."
+
+    output = capsys.readouterr().out
+    assert "Provider reasoning." in output

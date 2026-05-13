@@ -293,7 +293,7 @@ def run_agent(
             break
 
         response_text = message.get("content") or ""
-        reasoning_text = message.get("reasoning_content") or ""
+        reasoning_text = message.get("reasoning_content") or message.get("reasoning") or ""
 
         if verbose:
             if reasoning_text:
