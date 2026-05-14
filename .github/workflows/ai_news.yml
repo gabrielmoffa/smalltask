@@ -1,0 +1,35 @@
+name: AI news digest
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # every day at 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ai-news:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install .
+
+      - name: Configure git identity
+        run: |
+          git config user.name "smalltask-bot"
+          git config user.email "smalltask-bot@users.noreply.github.com"
+
+      - name: Run ai_news agent
+        run: smalltask run examples/ai_news/agents/ai_news.yaml --verbose
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
