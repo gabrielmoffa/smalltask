@@ -64,8 +64,8 @@ def complete(
     }
     if "max_completion_tokens" in llm_config:
         payload["max_completion_tokens"] = llm_config["max_completion_tokens"]
-    else:
-        payload["max_tokens"] = llm_config.get("max_tokens", 4096)
+    elif "max_tokens" in llm_config:
+        payload["max_tokens"] = llm_config["max_tokens"]
 
     if tools:
         payload["tools"] = tools
