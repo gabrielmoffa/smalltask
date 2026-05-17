@@ -271,7 +271,7 @@ def run_agent(
             print(f"[smalltask] Tool call: {name}({json.dumps(args, default=str)})")
         try:
             raw = fn(**args)
-            result = json.dumps(raw) if not isinstance(raw, str) else raw
+            result = json.dumps(raw, default=str) if not isinstance(raw, str) else raw
         except Exception as e:
             result = f"Error: {e}"
         if verbose:
