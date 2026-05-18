@@ -277,6 +277,9 @@ def load_agent_config(agent_path: Path) -> dict:
     with open(agent_path) as f:
         config = yaml.safe_load(f)
 
+    if not isinstance(config, dict):
+        raise ValueError(f"Agent config {agent_path} is empty or not a valid YAML mapping.")
+
     required_keys = {"name", "prompt", "tools"}
     missing = required_keys - set(config.keys())
     if missing:
