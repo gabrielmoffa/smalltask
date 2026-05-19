@@ -146,6 +146,8 @@ def load_tools_from_file(path: Path) -> dict[str, dict]:
     """
     module_name = f"smalltask_tools.{path.stem}"
     spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load tool file: {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
