@@ -1,7 +1,11 @@
 """smalltask: define tools and agents as code, run them anywhere."""
 
+from typing import Callable, TypeVar
 
-def tool(fn):
+_F = TypeVar("_F", bound=Callable)
+
+
+def tool(fn: _F) -> _F:
     """Mark a function as a smalltask tool.
 
     Only decorated functions are exposed to agents when @tool is used in a file.
