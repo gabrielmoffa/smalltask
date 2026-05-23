@@ -337,22 +337,22 @@ def run_agent(
         results = [indexed[i] for i in range(len(tool_calls))]
 
         # Record tool results for post-hooks
-        for name, args, result in results:
-            all_tool_results.append({"tool": name, "args": args, "result": result})
+        for tool_name, tool_args, tool_result in results:
+            all_tool_results.append({"tool": tool_name, "args": tool_args, "result": tool_result})
 
         # Add tool results to message history
         if tool_mode == "native":
             # Each tool result is a separate message with role "tool"
-            for call, (name, _args, result) in zip(tool_calls, results):
+            for call, (tool_name, _tool_args, tool_result) in zip(tool_calls, results):
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call.get("id", ""),
-                    "content": result,
+                    "content": tool_result,
                 })
         else:
             # Prompt mode: combine results as a user message with XML tags
             combined = "\n\n".join(
-                format_tool_result(name, result) for name, _, result in results
+                format_tool_result(tool_name, tool_result) for tool_name, _, tool_result in results
             )
             messages.append({"role": "user", "content": combined})
 
