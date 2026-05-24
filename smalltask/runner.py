@@ -76,11 +76,6 @@ def _resolve_tools_dir(agent_path: Path, tools_dir: Path | None) -> Path:
     )
 
 
-def _collect_hook_tools(hooks: list[dict]) -> set[str]:
-    """Return the set of tool names referenced by hook entries."""
-    return {entry["tool"] for entry in hooks}
-
-
 def _run_hooks(
     hooks: list[dict],
     tools: dict,
@@ -180,10 +175,7 @@ def run_agent(
     # Load agent tools (exposed to the LLM) separately from hook tools
     agent_tool_names = list(config["tools"])
     agent_tool_name_set = set(agent_tool_names)
-    hook_tool_names = (
-        _collect_hook_tools(config["pre_hook"])
-        | _collect_hook_tools(config["post_hook"])
-    )
+    hook_tool_names = {entry["tool"] for entry in config["pre_hook"] + config["post_hook"]}
     hook_only_name_set = hook_tool_names - agent_tool_name_set
     extra_tool_names = set(extra_tools.keys()) if extra_tools else set()
     all_needed = [n for n in agent_tool_names + list(hook_only_name_set) if n not in extra_tool_names]
