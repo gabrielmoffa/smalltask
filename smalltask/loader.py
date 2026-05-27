@@ -114,7 +114,7 @@ def _build_schema(fn: Callable) -> dict:
     }
 
 
-def load_tool(fn: Callable) -> dict:
+def load_tool(fn: Callable) -> dict[str, Any]:
     """
     Convert a Python function into a smalltask tool entry dict.
 
