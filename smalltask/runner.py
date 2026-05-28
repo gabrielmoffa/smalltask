@@ -229,7 +229,7 @@ def run_agent(
         prompt = f"## Task\n\n{prompt}"
 
     # --- Tool mode setup ---
-    tool_mode = config.get("tool_mode", "native")
+    tool_mode = config["tool_mode"]
     openai_tools = None
     tool_name_map: dict[str, str] = {}  # sanitized → original
 
