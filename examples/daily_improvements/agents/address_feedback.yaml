@@ -1,0 +1,40 @@
+name: address_feedback
+description: >
+  Reads human feedback left on an open improvement PR and pushes a follow-up
+  commit to the same branch that addresses it. No new PR, no second review.
+
+llm:
+  connection: openrouter
+  model: anthropic/claude-sonnet-4.6
+  max_tokens: 4096
+
+prompt: |
+  A human has left feedback on improvement PR #${pr_number}. The repo is
+  already checked out on that PR's branch — your job is to revise the existing
+  change to address the feedback, then push a follow-up commit to the SAME branch.
+
+  Feedback to address:
+  ${feedback}
+
+  Steps:
+  1. Call get_pr_diff with pr_number=${pr_number} to see the current change
+  2. Read any files you need with read_file for context
+  3. Use replace_in_file to revise the change so it addresses the feedback
+  4. Call push_to_pr_branch with a short message describing what you changed
+  5. Respond with a one-line summary and STOP
+
+  Rules:
+  - Stay within the scope of THIS PR — address the feedback, do not start
+    unrelated changes or touch other files
+  - Do NOT create a new PR or a new branch — push to the current branch
+  - Keep the change focused and reviewable
+  - Do not make changes to this agent's own files (examples/daily_improvements/)
+  - If a tool call fails, do NOT retry more than once — report the error
+    in your final message so it can be debugged
+  - NEVER make up URLs, PR numbers, or tool results
+
+tools:
+  - github_pr.get_pr_diff
+  - repo.read_file
+  - repo.replace_in_file
+  - github_pr.push_to_pr_branch
