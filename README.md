@@ -374,9 +374,12 @@ A fully working example that runs as a daily GitHub Action: reads your codebase,
 See [`examples/daily_improvements/`](examples/daily_improvements/) for the tools and agent YAML, and [`.github/workflows/daily_improvements.yml`](.github/workflows/daily_improvements.yml) for the workflow.
 
 Features demonstrated:
-- **Pre-hook** — checks for pending bot PRs (skips if one exists; closes and retries if you commented `/reject`)
+- **Pre-hook as a control gate** — the open PR's comment thread drives the next run:
+  comment `/reject` to close it and start fresh, leave any other comment to have the
+  agent address it with a follow-up commit on the same branch, or say nothing to leave
+  it pending. With no open PR, it creates a new one.
 - **Agentic loop** — LLM reads files, decides on an improvement, writes the change, creates a PR
-- **Post-hook** — sends a Telegram notification with the PR link
+- **Post-hook** — an independent reviewer agent comments on the PR, then a Telegram notification is sent
 
 ---
 
