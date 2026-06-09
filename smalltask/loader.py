@@ -89,12 +89,29 @@ def _build_schema(fn: Callable) -> dict:
     required = []
     doc_lines = (inspect.getdoc(fn) or "").splitlines()
 
+    # Collect only the lines inside the Args: section so we don't accidentally
+    # match the parameter name appearing elsewhere in the docstring body.
+    args_lines: list[str] = []
+    in_args = False
+    for line in doc_lines:
+        stripped = line.strip()
+        if stripped.lower() in ("args:", "arguments:", "parameters:"):
+            in_args = True
+            continue
+        if in_args:
+            # A new top-level section header (no leading whitespace, ends with ":")
+            # signals the end of the Args block.
+            if stripped.endswith(":") and not line.startswith(" ") and not line.startswith("\t"):
+                break
+            args_lines.append(line)
+
     for name, param in sig.parameters.items():
         python_type = hints.get(name, str)
         prop = _build_property_schema(python_type)
 
         # Pull per-param description from docstring (Google style: "param: description")
-        for line in doc_lines:
+        search_lines = args_lines if args_lines else doc_lines
+        for line in search_lines:
             stripped = line.strip()
             if stripped.startswith(f"{name}:") or stripped.startswith(f"{name} ("):
                 desc = stripped.split(":", 1)[-1].strip()
