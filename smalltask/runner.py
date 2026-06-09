@@ -78,7 +78,7 @@ def _resolve_tools_dir(agent_path: Path, tools_dir: Path | None) -> Path:
 
 def _run_hooks(
     hooks: list[dict],
-    tools: dict,
+    tools: dict[str, dict],
     verbose: bool,
     output: str | None = None,
     tool_results: list[dict] | None = None,
