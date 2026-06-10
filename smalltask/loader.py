@@ -89,12 +89,39 @@ def _build_schema(fn: Callable) -> dict:
     required = []
     doc_lines = (inspect.getdoc(fn) or "").splitlines()
 
+    # Collect only the lines inside the Args: section so we don't accidentally
+    # match the parameter name appearing elsewhere in the docstring body.
+    args_lines: list[str] = []
+    in_args = False
+    for line in doc_lines:
+        stripped = line.strip()
+        if stripped.lower() in ("args:", "arguments:", "parameters:"):
+            in_args = True
+            continue
+        if in_args:
+            # A new top-level section header signals the end of the Args block.
+            # Criteria (all must hold to avoid false positives):
+            #   1. No leading whitespace — section headers are flush with column 0.
+            #   2. The entire non-empty content before the trailing ":" contains no
+            #      spaces, so "Returns:" matches but "See module foo.bar:" does not.
+            # This prevents a parameter description that happens to end with a colon
+            # (e.g. "param: See foo.bar:") from being mistaken for a section header.
+            if (
+                stripped.endswith(":")
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+                and " " not in stripped[:-1]  # no spaces before the trailing colon
+            ):
+                break
+            args_lines.append(line)
+
     for name, param in sig.parameters.items():
         python_type = hints.get(name, str)
         prop = _build_property_schema(python_type)
 
         # Pull per-param description from docstring (Google style: "param: description")
-        for line in doc_lines:
+        search_lines = args_lines if args_lines else doc_lines
+        for line in search_lines:
             stripped = line.strip()
             if stripped.startswith(f"{name}:") or stripped.startswith(f"{name} ("):
                 desc = stripped.split(":", 1)[-1].strip()
