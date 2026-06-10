@@ -99,9 +99,19 @@ def _build_schema(fn: Callable) -> dict:
             in_args = True
             continue
         if in_args:
-            # A new top-level section header (no leading whitespace, ends with ":")
-            # signals the end of the Args block.
-            if stripped.endswith(":") and not line.startswith(" ") and not line.startswith("\t"):
+            # A new top-level section header signals the end of the Args block.
+            # Criteria (all must hold to avoid false positives):
+            #   1. No leading whitespace — section headers are flush with column 0.
+            #   2. The entire non-empty content before the trailing ":" contains no
+            #      spaces, so "Returns:" matches but "See module foo.bar:" does not.
+            # This prevents a parameter description that happens to end with a colon
+            # (e.g. "param: See foo.bar:") from being mistaken for a section header.
+            if (
+                stripped.endswith(":")
+                and not line.startswith(" ")
+                and not line.startswith("\t")
+                and " " not in stripped[:-1]  # no spaces before the trailing colon
+            ):
                 break
             args_lines.append(line)
 
