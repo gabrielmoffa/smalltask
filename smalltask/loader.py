@@ -119,9 +119,11 @@ def _build_schema(fn: Callable) -> dict:
         python_type = hints.get(name, str)
         prop = _build_property_schema(python_type)
 
-        # Pull per-param description from docstring (Google style: "param: description")
-        search_lines = args_lines if args_lines else doc_lines
-        for line in search_lines:
+        # Pull per-param description from the Args: section of the docstring
+        # (Google style: "param: description"). Only search within args_lines to
+        # avoid false matches against unrelated sentences in the docstring body
+        # that happen to start with the parameter name followed by a colon.
+        for line in args_lines:
             stripped = line.strip()
             if stripped.startswith(f"{name}:") or stripped.startswith(f"{name} ("):
                 desc = stripped.split(":", 1)[-1].strip()
