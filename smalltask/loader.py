@@ -26,20 +26,28 @@ _TYPE_MAP = {
 _DEFAULT_MAX_ITERATIONS = 20
 
 
+def _unwrap_optional(python_type: Any) -> Any:
+    """Return the first non-None type arg for Union/Optional, or the type unchanged."""
+    origin = typing.get_origin(python_type)
+    if origin is Union or isinstance(python_type, types.UnionType):
+        non_none = [a for a in typing.get_args(python_type) if a is not type(None)]
+        if non_none:
+            return non_none[0]
+    return python_type
+
+
 def _resolve_json_type(python_type: Any) -> str:
     """Map a Python type annotation (including generics) to a JSON Schema type string."""
     if python_type in _TYPE_MAP:
         return _TYPE_MAP[python_type]
 
-    origin = typing.get_origin(python_type)
-    args = typing.get_args(python_type)
-
-    if origin is Union or isinstance(python_type, types.UnionType):
-        # Optional[X] is Union[X, None] — use the first non-None type
+    unwrapped = _unwrap_optional(python_type)
+    if unwrapped is not python_type:
+        # Optional[X] or Union[X, None] — use the first non-None type
         # Also handles Python 3.10+ `X | Y` union syntax
-        non_none = [a for a in args if a is not type(None)]
-        if non_none:
-            return _resolve_json_type(non_none[0])
+        return _resolve_json_type(unwrapped)
+
+    origin = typing.get_origin(python_type)
 
     if origin is list:
         return "array"
@@ -55,13 +63,11 @@ def _resolve_json_type(python_type: Any) -> str:
 
 def _build_property_schema(python_type: Any) -> dict[str, Any]:
     """Build a JSON Schema property for a Python type annotation."""
-    origin = typing.get_origin(python_type)
-    args = typing.get_args(python_type)
+    unwrapped = _unwrap_optional(python_type)
+    if unwrapped is not python_type:
+        return _build_property_schema(unwrapped)
 
-    if origin is Union or isinstance(python_type, types.UnionType):
-        non_none = [a for a in args if a is not type(None)]
-        if non_none:
-            return _build_property_schema(non_none[0])
+    args = typing.get_args(python_type)
 
     json_type = _resolve_json_type(python_type)
     prop: dict[str, Any] = {"type": json_type}
